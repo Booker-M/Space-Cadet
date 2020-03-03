@@ -383,7 +383,7 @@ function calcGravity(a, b) {
   }
   let distance = getDistance(a, b);
   if (distance < a.size*3) {
-    let gravity = (a.size/5)/(distance + a.size);
+    let gravity = (a.size/6)/(distance + a.size);
     let direction = getDir(a, b);
     accelerate(b, gravity, direction);
     let velDir = getVelDir(b);
