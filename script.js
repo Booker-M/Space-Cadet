@@ -221,18 +221,19 @@ function fix(object) {
 }
 
 function collide(a, b) {
-  if (a.end || b.end) { return; }
   let both = [a, b];
   for (i = 0; i < 2; i++) {
-    if (both[i].end) { continue; }
+    if (both[i].type !== types.PLANET && both[i===0?1:0].type === types.PLANET) {
+      both[i].xVel = 0;
+      both[i].yVel = 0;
+      both[i].dVel = 0;
+    }
+  }
+  if (a.end || b.end) { return; }
+  for (i = 0; i < 2; i++) {
     if (both[i].type !== types.PLANET) {
       if (both[i].type === types.BULLET && both[i===0?1:0].type === types.SHIP) {
         both[i].parent.kills++;
-      }
-      if (both[i===0?1:0].type === types.PLANET) {
-        both[i].xVel = 0;
-        both[i].yVel = 0;
-        both[i].dVel = 0;
       }
       both[i].end = true;
     }
@@ -390,10 +391,9 @@ function calcGravity(a, b) {
     let direction = getDir(a, b);
     accelerate(b, gravity, direction);
     let velDir = getVelDir(b);
-    // console.log(velDir);
     let diff = velDir - b.dir;
     if (Math.abs(diff) > PI) { diff-= Math.sign(diff)*2*PI; }
-    spin(b, diff*gravity*3/PI);
+    spin(b, diff*gravity*4/PI);
   }
 }
 
@@ -408,7 +408,7 @@ function fireBullet(object, missile) {
     let size = height/70;
     playSound(sounds.SHOOT, object);
     object.bulletWait = object === ship ? bulletWait : bulletWait*4;
-    objects.push({type: types.BULLET, xPos: object.xPos + Math.cos(object.dir)*size*6, yPos: object.yPos + Math.sin(object.dir)*size*6, dir: object.dir, xVel: object.xVel + Math.cos(object.dir)*speed, yVel: object.yVel + Math.sin(object.dir)*speed, dVel: 0, friction: 1, spinFriction: 1, maxSpeed: 40, maxRotation: 25, size: size, color: "cyan", end: false, missile: false, parent: object});
+    objects.push({type: types.BULLET, xPos: object.xPos + Math.cos(object.dir)*size*6, yPos: object.yPos + Math.sin(object.dir)*size*6, dir: object.dir, xVel: object.xVel + Math.cos(object.dir)*speed, yVel: object.yVel + Math.sin(object.dir)*speed, dVel: 0, friction: 0.998, spinFriction: ship.spinFriction, maxSpeed: 40, maxRotation: 25, size: size, color: "cyan", end: false, missile: false, parent: object});
   }
 }
 
