@@ -51,7 +51,7 @@ function windowResized() {
 }
 
 function playSound(sound, object) {
-  distance = getDistance(object.xPos, object.yPos, ship.xPos, ship.yPos);
+  distance = getDistance(object, ship);
   if (distance < width*2) {
     sound.volume = (width*2-distance)/(width*2);
     sound.play();
