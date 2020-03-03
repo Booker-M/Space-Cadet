@@ -383,7 +383,7 @@ function calcGravity(a, b) {
   }
   let distance = getDistance(a, b);
   if (distance < a.size*3) {
-    let gravity = (a.size/7)/(distance + a.size);
+    let gravity = (a.size/5)/(distance + a.size);
     let direction = getDir(a, b);
     accelerate(b, gravity, direction);
     let velDir = getVelDir(b);
@@ -445,7 +445,7 @@ function lockTarget(a, b) {
   if (a.target != null) {
     if (a.target === b) { return; }
     let distance = getDistance(a, b);
-    if (distance >= getDistance(a, a.target)) { return; }
+    if (distance >= a.size*4 + getDistance(a, a.target)) { return; }
   }
   let direction = getDir(b, a);
   let diff = direction - a.dir;
