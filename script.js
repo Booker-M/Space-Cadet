@@ -1,7 +1,7 @@
 const context = new window.AudioContext();
 const types = { SHIP: 'Ship', PLANET: 'Planet', BULLET: 'Bullet'};
 let ship = {};
-const moveSpeed = 0.3,
+const moveSpeed = 0.2,
       rotateSpeed = 0.4;
 const totalStars = 200,
       totalPlanets = 6,
@@ -30,15 +30,16 @@ const sounds = { //https://freesound.org/people/ProjectsU012/packs/18837/?page=3
 
 function setup() {
   createCanvas(windowWidth - 20, windowHeight - 20);
-  maxPlanetSize = height,
-      minPlanetSize = height/10;
+  maxPlanetSize = height;
+  minPlanetSize = height/10;
   noStroke();
   rectMode(CENTER);
   reset();
 }
 
 function reset() {
-  ship = {type: types.SHIP, xPos: 0, yPos: 0, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: 0.997, spinFriction: 0.96, maxSpeed: 10, maxRotation: 15, size: height/16, color: randomColor(), end: false, bulletWait: 0, missileWait: 0, flame: {back: false, left: false, right: false}, kills: 0};
+  ship = {type: types.SHIP, xPos: 0, yPos: 0, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: 0.99, spinFriction: 0.96, maxSpeed: 10, maxRotation: 15, size: height/16, color: randomColor(), end: false, bulletWait: 0, missileWait: 0, flame: {back: false, left: false, right: false}, kills: 0};
+  stars = [];
   objects = [ship];
   generateStars();
   generatePlanets();
@@ -94,23 +95,20 @@ function keys() {
 function refresh() {
   drawStars();
   for (let i = 0; i < objects.length; i++) {
+    if (objects[i].type !== types.PLANET) {
+      move(objects[i]);
+      trackTarget(objects[i]);
+    }
+    if (outOfBounds(objects[i])) { fix(objects[i]); }
     if (objects[i].end === true && endObject(i)) { i--; continue; }
-    if (objects[i].type === types.SHIP) {
-      if (objects[i].bulletWait > 0) { objects[i].bulletWait--; }
-      if (objects[i].missileWait > 0) { objects[i].missileWait--; }
-      if (objects[i] !== ship) { trackShips(objects[i]); }
+    if (objects[i].type === types.SHIP) { cooldown(objects[i]); }
+    for (let j = i + 1; j < objects.length; j++) {
+      if (collision(objects[i], objects[j])) { collide(objects[i], objects[j]); }
+      calcGravity(objects[i], objects[j]);
+      lockTarget(objects[i], objects[j]);
+      lockTarget(objects[j], objects[i]);
     }
-    if (objects[i].type===types.BULLET && objects[i].missile) { trackShips(objects[i]); }
-    if (objects[i].type === types.PLANET) { calcGravity(objects[i]); }
-    else { move(i); }
-    if (outOfBounds(objects[i].xPos, objects[i].yPos, objects[i].size)) { fix(i); }
-    else {
-      for (let j = 0; j < objects.length; j++) {
-        if (objects[i] === objects[j]) { continue; }
-        if (collision(objects[i].xPos, objects[i].yPos, objects[i].size, objects[j].xPos, objects[j].yPos, objects[j].size)) { collide(i, j); }
-      }
-      drawObject(objects[i]);
-    }
+    drawObject(objects[i]);
   }
 }
 
@@ -136,16 +134,6 @@ function drawUI() {
   text(ship.kills, width - 30 - (ship.kills > 9 ? parseInt(ship.kills/10).toString().length*16 : 0), 35);
 }
 
-function move(i) {
-  objects[i].dVel = objects[i].dVel * objects[i].spinFriction;
-  objects[i].xVel = objects[i].xVel * objects[i].friction;
-  objects[i].yVel = objects[i].yVel * objects[i].friction;
-  objects[i].dir += radians(objects[i].dVel);
-  if (Math.abs(objects[i].dir) > PI) { objects[i].dir -= Math.sign(objects[i].dir)*2*PI; }
-  objects[i].xPos += objects[i].xVel;
-  objects[i].yPos += objects[i].yVel;
-}
-
 function playMusic() {
     if (elapsed > trackLength) {
       let i = parseInt(Math.random()*music.length);
@@ -155,6 +143,16 @@ function playMusic() {
     } else {
       elapsed += 1/frameRate();
     }
+}
+
+function move(object) {
+  object.dVel = object.dVel * object.spinFriction;
+  object.xVel = object.xVel * object.friction;
+  object.yVel = object.yVel * object.friction;
+  object.dir += radians(object.dVel);
+  if (Math.abs(object.dir) > PI) { object.dir -= Math.sign(object.dir)*2*PI; }
+  object.xPos += object.xVel;
+  object.yPos += object.yVel;
 }
 
 function drawObject(object) {
@@ -168,6 +166,108 @@ function drawObject(object) {
     case types.PLANET: drawPlanet(object); break;
     case types.BULLET: drawBullet(object); break;
   }
+}
+
+function accelerate(object, amount, dir = object.dir) {
+  if (typeof(object.explosion) !== "undefined") { return; }
+  object.xVel += Math.cos(dir)*amount;
+  object.yVel += Math.sin(dir)*amount;
+  let speed = getDistance(object.xVel, object.yVel, 0, 0);
+  if (speed > object.maxSpeed) {
+    object.xVel -= (object.xVel/speed)*(speed - object.maxSpeed);
+    object.yVel -= (object.yVel/speed)*(speed - object.maxSpeed);
+  }
+}
+
+function spin(object, amount) {
+  if (typeof(object.explosion) !== "undefined") { return; }
+  object.dVel += amount;
+  if (Math.abs(object.dVel) > object.maxRotation) {
+    object.dVel = Math.sign(object.dVel)*object.maxRotation;
+  }
+}
+
+function outOfBounds(object) {
+  return (object.xPos > width*5 + ship.xPos + object.size/2 || object.xPos < -width*4 + ship.xPos - object.size/2 || object.yPos > height*5 + ship.yPos + object.size/2 || object.yPos < -height*4 + ship.yPos - object.size/2);
+}
+
+function getDistance(a, b) {
+  return Math.sqrt(Math.pow(a.xPos - b.xPos, 2) + Math.pow(a.yPos - b.yPos, 2));
+}
+
+function getSpeed(a, b) {
+  return Math.sqrt(Math.pow(a.xVel, 2) + Math.pow(a.yVel, 2));
+}
+
+function getDir(a, b) {
+  return Math.atan2(a.yPos - b.yPos, a.xPos - b.xPos);
+}
+
+function getVelDir(a) {
+  return Math.atan2(a.yVel, a.xVel);
+}
+
+function collision(a, b) {
+  return getDistance(a, b) < a.size/2 + b.size/2;
+}
+
+function fix(object) {
+  if (object === ship) { return; }
+  if (object.type === types.PLANET) { object = genPlanet(); }
+  else { object.end = true; }
+}
+
+function collide(a, b) {
+  let both = [a, b];
+  for (i = 0; i < 2; i++) {
+    if (both[i].end) { continue; }
+    if (both[i].type !== types.PLANET) {
+      if (both[i].type === types.BULLET && both[i===0?1:0].type === types.SHIP) {
+        both[i].parent.kills++;
+      }
+      if (both[i===0?1:0].type === types.PLANET) {
+        both[i].xVel = 0;
+        both[i].yVel = 0;
+        both[i].dVel = 0;
+      }
+      both[i].end = true;
+    }
+  }
+}
+
+function endObject(i) {
+  if (objects[i].type === types.SHIP || (objects[i].type === types.BULLET && objects[i].missile)) {
+    if(typeof(objects[i].explosion) === "undefined") {
+      playSound(sounds.EXPLODE, objects[i]);
+      objects[i].explosion = objects[i].size/2;
+      return false;
+    } else {
+       if (objects[i].explosion > objects[i].size*2) {
+         if (objects[i]. type === types.BULLET) { return removeObject(i); }
+         if (objects[i] === ship) { reset(); }
+         else { objects[i] = genShip(); }
+         return false;
+       } else {
+         objects[i].explosion += (objects[i].size*2-objects[i].explosion)/10 + 0.1;
+         return false;
+       }
+    }
+  }
+  else { 
+    return removeObject(i);
+  }
+}
+
+function removeObject(i) {
+  if (objects[i] === ship) { reset(); }
+  else { objects.splice(i, 1); }
+  return true;
+}
+
+function cooldown(object) {
+  if (object.type !== types.SHIP) { return; }
+  if (object.bulletWait > 0) { object.bulletWait--; }
+  if (object.missileWait > 0) { object.missileWait--; }
 }
 
 function drawShip(object) {
@@ -229,95 +329,6 @@ function drawExplosion(object) {
   ellipse(0, 0, object.explosion);
 }
 
-function accelerate(object, amount, dir = object.dir) {
-  if (typeof(object.explosion) !== "undefined") { return; }
-  object.xVel += Math.cos(dir)*amount;
-  object.yVel += Math.sin(dir)*amount;
-  let speed = getDistance(object.xVel, object.yVel, 0, 0);
-  if (speed > object.maxSpeed) {
-    object.xVel -= (object.xVel/speed)*(speed - object.maxSpeed);
-    object.yVel -= (object.yVel/speed)*(speed - object.maxSpeed);
-  }
-}
-
-function spin(object, amount) {
-  if (typeof(object.explosion) !== "undefined") { return; }
-  object.dVel += amount;
-  if (Math.abs(object.dVel) > object.maxRotation) {
-    object.dVel = Math.sign(object.dVel)*object.maxRotation;
-  }
-}
-
-function outOfBounds(xPos, yPos, size) {
-  return (xPos > width*5 + ship.xPos + size/2 || xPos < -width*4 + ship.xPos - size/2 || yPos > height*5 + ship.yPos + size/2 || yPos < -height*4 + ship.yPos - size/2);
-}
-
-function getDistance(x1, y1, x2, y2) {
-  return Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2));
-}
-
-function getDir(x1, y1, x2, y2) {
-  return Math.atan2(y1 - y2, x1 - x2);
-}
-
-
-function collision(x1, y1, s1, x2, y2, s2) {
-  return getDistance(x1, y1, x2, y2) < s1/2 + s2/2;
-}
-
-function fix(i) {
-  if (objects[i] === ship) { return; }
-  if (objects[i].type === types.PLANET) { objects[i] = genPlanet(); }
-  else { objects[i].end = true; }
-}
-
-function collide(i, j) {
-  let both = [objects[i], objects[j]];
-  for (a = 0; a < 2; a ++) {
-    if (both[a].end) { continue; }
-    if (both[a].type !== types.PLANET) {
-      if (both[a].type === types.BULLET && both[a===0?1:0].type === types.SHIP) {
-        both[a].parent.kills++;
-      }
-      if (both[a===0?1:0].type === types.PLANET) {
-        both[a].xVel = 0;
-        both[a].yVel = 0;
-        both[a].dVel = 0;
-      }
-      both[a].end = true;
-    }
-  }
-}
-
-function endObject(i) {
-  if (objects[i].type === types.SHIP || (objects[i].type === types.BULLET && objects[i].missile)) {
-    if(typeof(objects[i].explosion) === "undefined") {
-      playSound(sounds.EXPLODE, objects[i]);
-      objects[i].explosion = objects[i].size/2;
-      return false;
-    } else {
-       if (objects[i].explosion > objects[i].size*2) {
-         if (objects[i]. type === types.BULLET) { return removeObject(i); }
-         if (objects[i] === ship) { reset(); }
-         else { objects[i] = genShip(); }
-         return false;
-       } else {
-         objects[i].explosion += (objects[i].size*2-objects[i].explosion)/10 + 0.1;
-         return false;
-       }
-    }
-  }
-  else { 
-    return removeObject(i);
-  }
-}
-
-function removeObject(i) {
-  if (objects[i] === ship) { reset(); }
-  else { objects.splice(i, 1); }
-  return true;
-}
-
 function randomColor() {
   return [Math.random()*255, Math.random()*255, Math.random()*255];
 }
@@ -354,7 +365,7 @@ function genPlanet() {
   let xOrY = parseInt(Math.random()+0.5);
   let newPlanet = {type: types.PLANET, xPos: ((Math.random()*2+xOrY)*width + maxPlanetSize/2) * Math.sign(Math.random()-0.5) + ship.xPos, yPos: ((Math.random()*2+(1-xOrY))*height + maxPlanetSize/2) * Math.sign(Math.random()-0.5) + ship.yPos, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: 0, spinFriction: 0, maxSpeed: 0, maxRotation: 0, size: Math.random() * (maxPlanetSize-minPlanetSize) + minPlanetSize, color: randomColor(), end: false};
   for (let i = 0; i < objects.length; i++) {
-    if (collision(newPlanet.xPos, newPlanet.yPos, newPlanet.size, objects[i].xPos, objects[i].yPos, objects[i].size)) { return genPlanet(); }
+    if (collision(newPlanet, objects[i])) { return genPlanet(); }
   }
   return newPlanet;
 }
@@ -364,19 +375,22 @@ function drawPlanet(object) {
   ellipse(0, 0, object.size);
 }
 
-function calcGravity(object) {
-  for (let i = 0; i < objects.length; i++) {
-    if (object === objects[i]) { continue; }
-    let distance = getDistance(object.xPos, object.yPos, objects[i].xPos, objects[i].yPos);
-    if (distance < object.size*3) {
-      let gravity = (object.size/4)/(distance+object.size);
-      let dir = getDir(object.xPos, object.yPos, objects[i].xPos, objects[i].yPos);
-      accelerate(objects[i], gravity, dir);
-      let velDir = getDir(objects[i].xVel, objects[i].yVel, 0, 0);
-      let diff = velDir - objects[i].dir;
-      if (Math.abs(diff) > PI) { diff-= Math.sign(diff)*2*PI; }
-      spin(objects[i], diff*gravity*3/PI);
-    }
+function calcGravity(a, b) {
+  if (a.type === types.PLANET && b.type === types.PLANET) { return; }
+  if (a.type !== types.PLANET) {
+    if (b.type === types.PLANET) { temp = a; a = b; b = temp; }
+    else { return; }
+  }
+  let distance = getDistance(a, b);
+  if (distance < a.size*3) {
+    let gravity = (a.size/7)/(distance + a.size);
+    let direction = getDir(a, b);
+    accelerate(b, gravity, direction);
+    let velDir = getVelDir(b);
+    // console.log(velDir);
+    let diff = velDir - b.dir;
+    if (Math.abs(diff) > PI) { diff-= Math.sign(diff)*2*PI; }
+    spin(b, diff*gravity*3/PI);
   }
 }
 
@@ -386,7 +400,7 @@ function fireBullet(object, missile) {
     let size = height/35;
     playSound(sounds.MISSILE, object);
     object.missileWait = object === ship ? missileWait : missileWait*2;
-    objects.push({type: types.BULLET, xPos: object.xPos + Math.cos(object.dir)*size*4, yPos: object.yPos + Math.sin(object.dir)*size*4, dir: object.dir, xVel: object.xVel + Math.cos(object.dir)*speed, yVel: object.yVel + Math.sin(object.dir)*speed, dVel: 0, friction: ship.friction, spinFriction: ship.spinFriction, maxSpeed: ship.maxSpeed, maxRotation: ship.maxRotation, size: size, color: "red", end: false, missile: true, parent: object});
+    objects.push({type: types.BULLET, xPos: object.xPos + Math.cos(object.dir)*size*4, yPos: object.yPos + Math.sin(object.dir)*size*4, dir: object.dir, xVel: object.xVel + Math.cos(object.dir)*speed, yVel: object.yVel + Math.sin(object.dir)*speed, dVel: 0, friction: ship.friction, spinFriction: ship.spinFriction, maxSpeed: ship.maxSpeed, maxRotation: ship.maxRotation, size: size, color: "red", end: false, missile: true, parent: object, target: null});
   } else {
     let size = height/70;
     playSound(sounds.SHOOT, object);
@@ -419,37 +433,44 @@ function generateShips() {
 function genShip() {
   let xOrY = parseInt(Math.random()+0.5);
   let size = ship.size;
-  let newShip = {type: types.SHIP, xPos: ((Math.random()*2+xOrY)*width + size/2) * Math.sign(Math.random()-0.5) + ship.xPos, yPos: ((Math.random()*2+(1-xOrY))*height + size/2) * Math.sign(Math.random()-0.5) + ship.yPos, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: ship.friction, spinFriction: ship.spinFriction, maxSpeed: ship.maxSpeed, maxRotation: ship.maxRotation, size: size, color: randomColor(), end: false, bulletWait: 0, missileWait: 0, flame: {back: false, left: false, right: false}, kills: 0};
+  let newShip = {type: types.SHIP, xPos: ((Math.random()*2+xOrY)*width + size/2) * Math.sign(Math.random()-0.5) + ship.xPos, yPos: ((Math.random()*2+(1-xOrY))*height + size/2) * Math.sign(Math.random()-0.5) + ship.yPos, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: ship.friction, spinFriction: ship.spinFriction, maxSpeed: ship.maxSpeed, maxRotation: ship.maxRotation, size: size, color: randomColor(), end: false, bulletWait: 0, missileWait: 0, flame: {back: false, left: false, right: false}, kills: 0, target: null};
   for (let i = 0; i < objects.length; i++) {
-    if (collision(newShip.xPos, newShip.yPos, newShip.size, objects[i].xPos, objects[i].yPos, objects[i].size)) { return genShip(); }
+    if (collision(newShip, objects[i])) { return genShip(); }
   }
   return newShip;
 }
 
-function trackShips(object) {
-  if (object === ship) { return; }
-  let minDistance = Number.MAX_SAFE_INTEGER;
-  let target = {};
-  for (let i = 0; i < objects.length; i++) {
-    if (object === objects[i] || objects[i].type !== types.SHIP || (object.type === types.BULLET && object.parent === objects[i])) { continue; }
-    let distance = getDistance(objects[i].xPos, objects[i].yPos, object.xPos, object.yPos);
-    if (minDistance > distance) {
-      minDistance = distance;
-      target = objects[i];
-    }
+function lockTarget(a, b) {
+  if ((a.type !== types.SHIP || a === ship) && (a.type !== types.BULLET || !a.missile || a.parent === b)) { return; }
+  if (a.target != null) {
+    if (a.target === b) { return; }
+    let distance = getDistance(a, b);
+    if (distance >= getDistance(a, a.target)) { return; }
   }
-  if (object.type === types.SHIP) { object.flame = {back: false, left: false, right: false}; };
-  if (target === {}) { return; }
-  let dir = getDir(target.xPos, target.yPos, object.xPos, object.yPos);
-  let speed = ((minDistance > target.size*10) || object.type === types.BULLET) ? moveSpeed*0.7 : getDistance(target.xVel, target.yVel, object.xVel, object.yVel);
-  let diff = dir - object.dir;
+  let direction = getDir(b, a);
+  let diff = direction - a.dir;
   if (Math.abs(diff) > PI) { diff-= Math.sign(diff)*2*PI; }
-  spin(object, diff/(2*PI));
-  accelerate(object, speed);
+  if (diff < PI/2) { a.target = b; }
+  // a.target = ship;
+}
+
+function trackTarget(object) {
+  if (((object.type !== types.SHIP || object === ship) && (object.type !== types.BULLET || !object.missile)) || object.target == null) { return; }
+  if (object.type === types.SHIP) { object.flame = {back: false, left: false, right: false}; };
+  let direction = getDir(object.target, object);
+  let distance = getDistance(object, object.target);
+  let diff = direction - object.dir;
+  if (Math.abs(diff) > PI) { diff-= Math.sign(diff)*2*PI; }
+  spin(object, diff/(PI));
+  let speedDiff = Math.max(0, getSpeed(object.target) - getSpeed(object));
+  if (Math.random() < 0.01) { console.log(speedDiff)}
+  let speed = ((distance > object.target.size*10) || object.type === types.BULLET) ? moveSpeed*0.7 : Math.min(moveSpeed*0.7, speedDiff);
+  // let speed = moveSpeed*0.7;
+  accelerate(object, speed, direction);
   if (object.type === types.SHIP) {
     object.flame.back = true;
     diff > 0 ? object.flame.right = true : object.flame.left = true;
-    if (minDistance < height/2 && object.bulletWait === 0) {fireBullet(object, false); }
-    if (minDistance < height/2 && object.missileWait === 0) {fireBullet(object, true); }
+    if (distance < height/2 && object.bulletWait === 0) {fireBullet(object, false); }
+    if (distance < height/2 && object.missileWait === 0) {fireBullet(object, true); }
   }
 }
