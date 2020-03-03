@@ -102,6 +102,7 @@ function refresh() {
       trackTarget(objects[i]);
     }
     if (outOfBounds(objects[i])) { fix(objects[i]); }
+    if (objects[i].type === types.BULLET && !objects[i].missile && parseInt(getSpeed(objects[i])) === 0) { objects[i].end = true; }
     if (objects[i].end === true && endObject(i)) { i--; continue; }
     if (objects[i].type === types.SHIP) { cooldown(objects[i]); }
     for (let j = i + 1; j < objects.length; j++) {
