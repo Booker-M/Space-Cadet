@@ -13,7 +13,7 @@ let flameSize = 5;
 let flameGrow = true;
 let stars = [];
 let objects = [];
-let bulletWait = 24,
+let bulletWait = 12,
     missileWait = 24*15;
 
 const music = [
@@ -404,7 +404,7 @@ function fireBullet(object, missile) {
   } else {
     let size = height/70;
     playSound(sounds.SHOOT, object);
-    object.bulletWait = object === ship ? bulletWait : bulletWait*2;
+    object.bulletWait = object === ship ? bulletWait : bulletWait*4;
     objects.push({type: types.BULLET, xPos: object.xPos + Math.cos(object.dir)*size*6, yPos: object.yPos + Math.sin(object.dir)*size*6, dir: object.dir, xVel: object.xVel + Math.cos(object.dir)*speed, yVel: object.yVel + Math.sin(object.dir)*speed, dVel: 0, friction: 1, spinFriction: 1, maxSpeed: 40, maxRotation: 25, size: size, color: "cyan", end: false, missile: false, parent: object});
   }
 }
@@ -464,7 +464,7 @@ function trackTarget(object) {
   spin(object, diff/(PI));
   let speedDiff = Math.max(0, getSpeed(object.target) - getSpeed(object));
   if (Math.random() < 0.01) { console.log(speedDiff)}
-  let speed = ((distance > object.target.size*10) || object.type === types.BULLET) ? moveSpeed*0.7 : Math.min(moveSpeed*0.7, speedDiff);
+  let speed = ((distance > object.target.size*10) || object.type === types.BULLET) ? moveSpeed*0.7 : Math.min(moveSpeed*0.7, speedDiff + 0.1);
   // let speed = moveSpeed*0.7;
   accelerate(object, speed, direction);
   if (object.type === types.SHIP) {
