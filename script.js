@@ -1,7 +1,7 @@
 const context = new window.AudioContext();
 const types = { SHIP: 'Ship', PLANET: 'Planet', BULLET: 'Bullet'};
 let ship = {};
-const moveSpeed = 0.2,
+const moveSpeed = 0.25,
       rotateSpeed = 0.4;
 const totalStars = 200,
       totalPlanets = 6,
@@ -19,8 +19,9 @@ let bulletWait = 12,
 const music = [
   new Audio('http://soundimage.org/wp-content/uploads/2016/11/Automation.mp3')
 ];
+var startTime,
+    elapsedTime = Number.MAX_SAFE_INTEGER;
 let trackLength = 0.0;
-let elapsed = Number.MAX_SAFE_INTEGER;
 
 const sounds = { //https://freesound.org/people/ProjectsU012/packs/18837/?page=3#sound
   SHOOT: new Audio('https://freesound.org/data/previews/459/459145_6142149-lq.mp3'),
@@ -38,7 +39,8 @@ function setup() {
 }
 
 function reset() {
-  ship = {type: types.SHIP, xPos: 0, yPos: 0, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: 0.99, spinFriction: 0.96, maxSpeed: 10, maxRotation: 15, size: height/16, color: randomColor(), end: false, bulletWait: 0, missileWait: 0, flame: {back: false, left: false, right: false}, kills: 0};
+  startTime = new Date();
+  ship = {type: types.SHIP, xPos: 0, yPos: 0, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: 0.995, spinFriction: 0.96, maxSpeed: 10, maxRotation: 10, size: height/16, color: randomColor(), end: false, bulletWait: 0, missileWait: 0, flame: {back: false, left: false, right: false}, kills: 0};
   stars = [];
   objects = [ship];
   generateStars();
@@ -135,14 +137,14 @@ function drawUI() {
 }
 
 function playMusic() {
-    if (elapsed > trackLength) {
-      let i = parseInt(Math.random()*music.length);
-      music[i].play();
-      elapsed = 0.0;
-      trackLength = music[i].duration;
-    } else {
-      elapsed += 1/frameRate();
-    }
+  elapsedTime = new Date();
+  var timeDiff = elapsedTime - startTime;
+  if (timeDiff > trackLength) {
+    let i = parseInt(Math.random()*music.length);
+    trackLength = music[i].duration;
+    music[i].play();
+    startTime = new Date();
+  }
 }
 
 function move(object) {
@@ -166,13 +168,14 @@ function drawObject(object) {
     case types.PLANET: drawPlanet(object); break;
     case types.BULLET: drawBullet(object); break;
   }
+  flameFlicker();
 }
 
 function accelerate(object, amount, dir = object.dir) {
   if (typeof(object.explosion) !== "undefined") { return; }
   object.xVel += Math.cos(dir)*amount;
   object.yVel += Math.sin(dir)*amount;
-  let speed = getDistance(object.xVel, object.yVel, 0, 0);
+  let speed = getSpeed(object);
   if (speed > object.maxSpeed) {
     object.xVel -= (object.xVel/speed)*(speed - object.maxSpeed);
     object.yVel -= (object.yVel/speed)*(speed - object.maxSpeed);
@@ -218,6 +221,7 @@ function fix(object) {
 }
 
 function collide(a, b) {
+  if (a.end || b.end) { return; }
   let both = [a, b];
   for (i = 0; i < 2; i++) {
     if (both[i].end) { continue; }
@@ -307,17 +311,16 @@ function drawFlames(object) {
     fill("red");
     triangle(-size/3.5, -flameSize*size/80 - size/2, -size/3.5, flameSize*size/80 - size/2, -size/3.5 - flameSize*size/80*2, -size/2);
   }
-  flameFlicker();
 }
 
 function flameFlicker() {
   if (flameGrow) {
-      flameSize += 0.2;
+      flameSize += 0.05;
       if (flameSize >= 10) {
         flameGrow = false;
       }
     } else {
-      flameSize -= 0.2;
+      flameSize -= 0.05;
       if (flameSize <= 5) {
         flameGrow = true;
       }
@@ -463,9 +466,7 @@ function trackTarget(object) {
   if (Math.abs(diff) > PI) { diff-= Math.sign(diff)*2*PI; }
   spin(object, diff/(PI));
   let speedDiff = Math.max(0, getSpeed(object.target) - getSpeed(object));
-  if (Math.random() < 0.01) { console.log(speedDiff)}
-  let speed = ((distance > object.target.size*10) || object.type === types.BULLET) ? moveSpeed*0.7 : Math.min(moveSpeed*0.7, speedDiff + 0.1);
-  // let speed = moveSpeed*0.7;
+  let speed = ((distance > object.target.size*10) || object.type === types.BULLET) ? moveSpeed*0.6 : Math.min(moveSpeed*0.3, speedDiff + 0.1);
   accelerate(object, speed, direction);
   if (object.type === types.SHIP) {
     object.flame.back = true;
