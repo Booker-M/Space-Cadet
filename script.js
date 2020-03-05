@@ -7,6 +7,7 @@ const totalStars = 200,
       totalPlanets = 6,
       totalShips = 7,
       totalBullets = 100;
+let bounds;
 let maxPlanetSize,
     minPlanetSize;
 let flameSize = 5;
@@ -31,8 +32,7 @@ const sounds = { //https://freesound.org/people/ProjectsU012/packs/18837/?page=3
 
 function setup() {
   createCanvas(windowWidth - 20, windowHeight - 20);
-  maxPlanetSize = height;
-  minPlanetSize = height/10;
+  adjustSizes();
   noStroke();
   rectMode(CENTER);
   reset();
@@ -40,7 +40,7 @@ function setup() {
 
 function reset() {
   startTime = new Date();
-  ship = {type: types.SHIP, xPos: 0, yPos: 0, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: 0.995, spinFriction: 0.96, maxSpeed: 10, maxRotation: 10, size: height/16, color: randomColor(), end: false, bulletWait: 0, missileWait: 0, flame: {back: false, left: false, right: false}, kills: 0};
+  ship = {type: types.SHIP, xPos: 0, yPos: 0, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: 0.996, spinFriction: 0.97, maxSpeed: 10, maxRotation: 10, size: height/16, color: randomColor(), end: false, bulletWait: 0, missileWait: 0, flame: {back: false, left: false, right: false}, kills: 0};
   stars = [];
   objects = [ship];
   generateStars();
@@ -50,6 +50,13 @@ function reset() {
 
 function windowResized() {
   resizeCanvas(windowWidth - 20, windowHeight - 20);
+  adjustSizes();
+}
+
+function adjustSizes() {
+  bounds = width*5;
+  maxPlanetSize = height;
+  minPlanetSize = height/5;
 }
 
 function playSound(sound, object) {
@@ -96,12 +103,13 @@ function keys() {
 
 function refresh() {
   drawStars();
+  flameFlicker();
   for (let i = 0; i < objects.length; i++) {
     if (objects[i].type !== types.PLANET) {
       move(objects[i]);
       trackTarget(objects[i]);
     }
-    if (outOfBounds(objects[i])) { fix(objects[i]); }
+    if (outOfBounds(objects[i])) { fix(i); }
     if (objects[i].type === types.BULLET && !objects[i].missile && parseInt(getSpeed(objects[i])) === 0) { objects[i].end = true; }
     if (objects[i].end === true && endObject(i)) { i--; continue; }
     if (objects[i].type === types.SHIP) { cooldown(objects[i]); }
@@ -159,9 +167,10 @@ function move(object) {
 }
 
 function drawObject(object) {
+  resetMatrix();
+  if (offScreen(object)) { drawArrow(object); return; }
   let x = object.xPos - ship.xPos + width/2,
       y = object.yPos - ship.yPos + height/2;
-  resetMatrix();
   translate(x, y);
   rotate(object.dir);
   switch (object.type) {
@@ -169,7 +178,6 @@ function drawObject(object) {
     case types.PLANET: drawPlanet(object); break;
     case types.BULLET: drawBullet(object); break;
   }
-  flameFlicker();
 }
 
 function accelerate(object, amount, dir = object.dir) {
@@ -192,7 +200,11 @@ function spin(object, amount) {
 }
 
 function outOfBounds(object) {
-  return (object.xPos > width*5 + ship.xPos + object.size/2 || object.xPos < -width*4 + ship.xPos - object.size/2 || object.yPos > height*5 + ship.yPos + object.size/2 || object.yPos < -height*4 + ship.yPos - object.size/2);
+  return (object.xPos > bounds + ship.xPos + object.size/2 || object.xPos < -bounds + ship.xPos - object.size/2 || object.yPos > bounds + ship.yPos + object.size/2 || object.yPos < -bounds + ship.yPos - object.size/2);
+}
+
+function offScreen(object) {
+  return (object.xPos > width/2 + ship.xPos + object.size/2 || object.xPos < -width/2 + ship.xPos - object.size/2 || object.yPos > height/2 + ship.yPos + object.size/2 || object.yPos < -height/2 + ship.yPos - object.size/2);
 }
 
 function getDistance(a, b) {
@@ -215,10 +227,10 @@ function collision(a, b) {
   return getDistance(a, b) < a.size/2 + b.size/2;
 }
 
-function fix(object) {
-  if (object === ship) { return; }
-  if (object.type === types.PLANET) { object = genPlanet(); }
-  else { object.end = true; }
+function fix(i) {
+  if (objects[i] === ship) { return; }
+  if (objects[i].type === types.PLANET) { objects[i] = genPlanet(); }
+  else { objects[i].end = true; }
 }
 
 function collide(a, b) {
@@ -330,8 +342,30 @@ function flameFlicker() {
 }
 
 function drawExplosion(object) {
-  fill(`rgba(200,0,0, ${(object.size*2-object.explosion)/(object.size*2)+0.5})`);
+  fill(200, 0, 0, 255*((object.size*2-object.explosion)/(object.size*2)+0.5));
   ellipse(0, 0, object.explosion);
+}
+
+function drawArrow(object) {
+  if (object.type !== types.PLANET && object.type !== types.SHIP) { return; }
+  a = getArrow(object);
+  fill(object.color[0], object.color[1], object.color[2], 255*(bounds-getDistance(ship, object))/bounds);
+  translate(a.xPos, a.yPos);
+  rotate(a.dir);
+  if ( object.type === types.SHIP) { triangle(10, 10, 10, -10, -10, 0); }
+  if ( object.type === types.PLANET) { ellipse(0, 0, 20); }
+}
+
+function getArrow(object) {
+  let a = {xPos: object.xPos, yPos: object.yPos, dir: 0};
+  if (a.xPos > width/2 - 20 + ship.xPos) { a.xPos = width - 20; }
+  else if (a.xPos < -width/2 + 20 + ship.xPos) { a.xPos = 20; }
+  else { a.xPos += -ship.xPos + width/2; }
+  if (a.yPos > height/2 - 20 + ship.yPos) { a.yPos = height - 20; }
+  else if (a.yPos < -height/2 + 20 + ship.yPos) { a.yPos = 20; }
+  else { a.yPos += -ship.yPos + height/2; }
+  a.dir = getDir(ship, object);
+  return a;
 }
 
 function randomColor() {
@@ -368,7 +402,10 @@ function generatePlanets() {
 
 function genPlanet() {
   let xOrY = parseInt(Math.random()+0.5);
-  let newPlanet = {type: types.PLANET, xPos: ((Math.random()*2+xOrY)*width + maxPlanetSize/2) * Math.sign(Math.random()-0.5) + ship.xPos, yPos: ((Math.random()*2+(1-xOrY))*height + maxPlanetSize/2) * Math.sign(Math.random()-0.5) + ship.yPos, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: 0, spinFriction: 0, maxSpeed: 0, maxRotation: 0, size: Math.random() * (maxPlanetSize-minPlanetSize) + minPlanetSize, color: randomColor(), end: false};
+  let size = Math.random() * (maxPlanetSize-minPlanetSize) + minPlanetSize;
+  let x = Math.sign(Math.random()-0.5) * (Math.random()*bounds + (width + size)*xOrY)/2 + ship.xPos;
+  let y = Math.sign(Math.random()-0.5) * (Math.random()*bounds + (height + size)*(1-xOrY))/2 + ship.yPos;
+  let newPlanet = {type: types.PLANET, xPos: x, yPos: y, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: 0, spinFriction: 0, maxSpeed: 0, maxRotation: 0, size: size, color: randomColor(), end: false};
   for (let i = 0; i < objects.length; i++) {
     if (collision(newPlanet, objects[i])) { return genPlanet(); }
   }
@@ -394,7 +431,7 @@ function calcGravity(a, b) {
     let velDir = getVelDir(b);
     let diff = velDir - b.dir;
     if (Math.abs(diff) > PI) { diff-= Math.sign(diff)*2*PI; }
-    spin(b, diff*gravity*4/PI);
+    spin(b, diff*gravity*5/PI);
   }
 }
 
@@ -437,7 +474,9 @@ function generateShips() {
 function genShip() {
   let xOrY = parseInt(Math.random()+0.5);
   let size = ship.size;
-  let newShip = {type: types.SHIP, xPos: ((Math.random()*2+xOrY)*width + size/2) * Math.sign(Math.random()-0.5) + ship.xPos, yPos: ((Math.random()*2+(1-xOrY))*height + size/2) * Math.sign(Math.random()-0.5) + ship.yPos, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: ship.friction, spinFriction: ship.spinFriction, maxSpeed: ship.maxSpeed, maxRotation: ship.maxRotation, size: size, color: randomColor(), end: false, bulletWait: 0, missileWait: 0, flame: {back: false, left: false, right: false}, kills: 0, target: null};
+    let x = Math.sign(Math.random()-0.5) * (Math.random()*bounds + (width + size)*xOrY)/2 + ship.xPos;
+  let y = Math.sign(Math.random()-0.5) * (Math.random()*bounds + (height + size)*(1-xOrY))/2 + ship.yPos;
+  let newShip = {type: types.SHIP, xPos: x, yPos: y, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: ship.friction, spinFriction: ship.spinFriction, maxSpeed: ship.maxSpeed, maxRotation: ship.maxRotation, size: size, color: randomColor(), end: false, bulletWait: 0, missileWait: 0, flame: {back: false, left: false, right: false}, kills: 0, target: null};
   for (let i = 0; i < objects.length; i++) {
     if (collision(newShip, objects[i])) { return genShip(); }
   }
@@ -472,7 +511,9 @@ function trackTarget(object) {
   if (object.type === types.SHIP) {
     object.flame.back = true;
     diff > 0 ? object.flame.right = true : object.flame.left = true;
-    if (distance < height/2 && object.bulletWait === 0) {fireBullet(object, false); }
-    if (distance < height/2 && object.missileWait === 0) {fireBullet(object, true); }
+    if (distance < height/2) {
+      if (object.missileWait === 0) { fireBullet(object, true); }
+      else if (object.bulletWait === 0 && object.missile < missileWait*0.95) { fireBullet(object, false); }
+    }
   }
 }
