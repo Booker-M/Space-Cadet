@@ -1,9 +1,11 @@
-const context = new window.AudioContext();
+let newGame = true;
+let gameStart;
+
 const types = { SHIP: 'Ship', PLANET: 'Planet', BULLET: 'Bullet'};
 let ship = {};
 const moveSpeed = 0.25,
       rotateSpeed = 0.4,
-      boostSpeed = 15;
+      boostSpeed = 10;
 const totalStars = 200,
       totalPlanets = 6,
       totalShips = 7;
@@ -22,13 +24,12 @@ let lastKey = {up: false, down: false, left: false, right: false, bullet: false}
 let lastKeyTime = {up: 0, down: 0, left: 0, right: 0, bullet: 0};
 let delta = 150;
 
-const music = [
-  new Audio('http://soundimage.org/wp-content/uploads/2016/11/Automation.mp3')
-];
 var startTime,
     elapsedTime = Number.MAX_SAFE_INTEGER;
 let trackLength = 0.0;
-
+const music = [
+  new Audio('http://soundimage.org/wp-content/uploads/2016/11/Automation.mp3')
+];
 const sounds = { //https://freesound.org/people/ProjectsU012/packs/18837/?page=3#sound
   SHOOT: new Audio('https://freesound.org/data/previews/459/459145_6142149-lq.mp3'),
   EXPLODE: new Audio('https://audiosoundclips.com/wp-content/uploads/2019/10/8-Bit-SFX_Explosion-2.mp3'),
@@ -46,9 +47,13 @@ function setup() {
 function reset() {
   startTime = new Date();
   ship = {type: types.SHIP, xPos: 0, yPos: 0, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: 0.996, spinFriction: 0.97, maxSpeed: 10, maxRotation: 10, size: height/16, color: randomColor(), end: false, wait: {bullet: new Date(), missile: new Date(), boost: new Date()}, flame: {back: false, left: false, right: false}, kills: 0};
-  stars = [];
   objects = [ship];
   generateStars();
+  if (newGame) { gameStart = new Date(); }
+  else { generation(); }
+}
+
+function generation() {
   generatePlanets();
   generateShips();
 }
@@ -73,22 +78,18 @@ function playSound(sound, object) {
 }
 
 function draw() {
-  background("black");
+  background('black');
   keys();
   refresh();
   drawUI();
   playMusic();
-  // console.log(ship.xPos, ship.yPos, ship.dir);
 }
 
 function keys() {
   if (keyIsDown(UP_ARROW) || keyIsDown(87)) {
     let thisKeyTime = new Date();
     if (thisKeyTime - lastKeyTime.up <= delta && !lastKey.up) {
-      if (thisKeyTime - ship.wait.boost >= boostWait) {
-        accelerate(ship, boostSpeed, ship.dir);
-        ship.wait.boost = new Date();
-      }
+      if (thisKeyTime - ship.wait.boost >= boostWait) { boost(ship, 'Up'); }
       thisKeyTime = 0;
       lastKeyTime.up = thisKeyTime;
     } else {
@@ -110,10 +111,7 @@ function keys() {
   if (keyIsDown(LEFT_ARROW) || keyIsDown(65)) {
     let thisKeyTime = new Date();
     if (thisKeyTime - lastKeyTime.left <= delta && !lastKey.left) {
-      if (thisKeyTime - ship.wait.boost >= boostWait) {
-        accelerate(ship, boostSpeed, ship.dir-PI/2.5);
-        ship.wait.boost = new Date();
-      }
+      if (thisKeyTime - ship.wait.boost >= boostWait) { boost(ship, 'Left'); }
       thisKeyTime = 0;
       lastKeyTime.left = thisKeyTime;
     } else {
@@ -129,10 +127,7 @@ function keys() {
   if (keyIsDown(RIGHT_ARROW) || keyIsDown(68)) {
     let thisKeyTime = new Date();
     if (thisKeyTime - lastKeyTime.right <= delta && !lastKey.right) {
-      if (thisKeyTime - ship.wait.boost >= boostWait) {
-        accelerate(ship, boostSpeed, ship.dir+PI/2.5);
-        ship.wait.boost = new Date();
-      }
+      if (thisKeyTime - ship.wait.boost >= boostWait) { boost(ship, 'Right'); }
       thisKeyTime = 0;
       lastKeyTime.right = thisKeyTime;
     } else {
@@ -159,9 +154,6 @@ function keys() {
   } else {
     lastKey.bullet = false;
   }
-  // if (ship.wait.missile === 0 && (keyIsDown(73) || keyIsDown(86))) {
-  //   fireBullet(ship, true);
-  // }
   if (keyIsDown(90)) { reset(); }
 }
 
@@ -174,7 +166,7 @@ function refresh() {
       trackTarget(objects[i]);
     }
     if (outOfBounds(objects[i])) { fix(i); }
-    if (objects[i].type === types.BULLET && !objects[i].missile && parseInt(getSpeed(objects[i])) === 0) { objects[i].end = true; }
+    if (objects[i].type === types.BULLET && !objects[i].missile && parseInt(getSpeed(objects[i])) < 3) { objects[i].end = true; }
     if (objects[i].end === true && endObject(i)) { i--; continue; }
     for (let j = i + 1; j < objects.length; j++) {
       if (collision(objects[i], objects[j])) { collide(objects[i], objects[j]); }
@@ -188,7 +180,7 @@ function refresh() {
 
 function drawUI() {
   resetMatrix();
-  fill("red");
+  fill('red');
   let s = 15;
   translate(40,31);
   rotate(-PI/5);
@@ -199,24 +191,82 @@ function drawUI() {
   resetMatrix();
   fill(100);
   rect(135, 30, 150, 10);
-  fill("red");
+  fill('red');
   let length = (Math.min(1, ((new Date() - ship.wait.missile)/missileWait)))*150;
   rect(60 + length/2, 30, length, 10);
   
-  fill("cyan");
+  fill('cyan');
   triangle(32, 53, 32, 68, 42, 60);
   triangle(32+10, 53, 32+10, 68, 42+10, 60);
   
   fill(100);
   rect(135, 60, 150, 10);
-  fill("cyan");
+  fill('cyan');
   length = (Math.min(1, ((new Date() - ship.wait.boost)/boostWait)))*150;
   rect(60 + length/2, 60, length, 10);
   
-  fill("white");
+  fill('white');
   textFont('Consolas');
   textSize(32);
   text(ship.kills, width - 50 - (ship.kills > 9 ? parseInt(ship.kills/10).toString().length*16 : 0), 50);
+  
+  if (newGame) { tutorial(); }
+}
+
+function tutorial() {
+  resetMatrix();
+  let currentTime = new Date();
+  let hold = 5000;
+  let gap = currentTime - gameStart;
+  if (gap < hold) {
+    textFont('Consolas');
+    textStyle(BOLD);
+    textSize(width/10);
+    fill(255, 255, 255, Math.min(gap, hold - gap));
+    textAlign(RIGHT, CENTER);
+    text('Space', width/2-10, height/3);
+    fill(255, 0, 0, Math.min(gap, hold - gap));
+    textAlign(LEFT, CENTER);
+    text('Cadet', width/2+10, height/3);
+  } else if (gap < hold*2) {
+    textFont('Consolas');
+    textStyle(BOLD);
+    textSize(width/40);
+    fill(255, 255, 255, Math.min(gap, hold*2 - gap));
+    textAlign(CENTER, CENTER);
+    text('Press [↑] or [W] to accelerate and [←] [→] or [A] [D] to rotate', width/2-10, height/3);
+  } else if (gap < hold*3) {
+    textFont('Consolas');
+    textStyle(BOLD);
+    textSize(width/40);
+    fill(255, 255, 255, Math.min(gap, hold*3 - gap));
+    textAlign(CENTER, CENTER);
+    text('Press [Space] or [U] to shoot', width/2-10, height/3);
+  } else if (gap < hold*4) {
+    textFont('Consolas');
+    textStyle(BOLD);
+    textSize(width/40);
+    fill(255, 255, 255, Math.min(gap, hold*4 - gap));
+    textAlign(CENTER, CENTER);
+    text('Double-tap [↑] [←] [→] or [W] [A] [D] to boost', width/2-10, height/3);
+  } else if (gap < hold*5) {
+    textFont('Consolas');
+    textStyle(BOLD);
+    textSize(width/40);
+    fill(255, 255, 255, Math.min(gap, hold*5 - gap));
+    textAlign(CENTER, CENTER);
+    text('Double-tap [Space] or [U] to fire a missile', width/2-10, height/3);
+  } else if (gap < hold*6) {
+    textFont('Consolas');
+    textStyle(BOLD);
+    textSize(width/40);
+    fill(255, 255, 255, Math.min(gap, hold*6 - gap));
+    textAlign(CENTER, CENTER);
+    text('Defeat enemy ships and avoid crashing into planets', width/2-10, height/3);
+  } else {
+    newGame = false;
+    generation();
+  }
 }
 
 function playMusic() {
@@ -255,7 +305,7 @@ function drawObject(object) {
 }
 
 function accelerate(object, amount, dir = object.dir) {
-  if (typeof(object.explosion) !== "undefined") { return; }
+  if (typeof(object.explosion) !== 'undefined') { return; }
   if (Math.abs(dir) > PI) { dir-= Math.sign(dir)*2*PI; }
   object.xVel += Math.cos(dir)*amount;
   object.yVel += Math.sin(dir)*amount;
@@ -267,7 +317,7 @@ function accelerate(object, amount, dir = object.dir) {
 }
 
 function spin(object, amount) {
-  if (typeof(object.explosion) !== "undefined") { return; }
+  if (typeof(object.explosion) !== 'undefined') { return; }
   object.dVel += amount;
   if (Math.abs(object.dVel) > object.maxRotation) {
     object.dVel = Math.sign(object.dVel)*object.maxRotation;
@@ -330,7 +380,7 @@ function collide(a, b) {
 
 function endObject(i) {
   if (objects[i].type === types.SHIP || (objects[i].type === types.BULLET && objects[i].missile)) {
-    if(typeof(objects[i].explosion) === "undefined") {
+    if(typeof(objects[i].explosion) === 'undefined') {
       playSound(sounds.EXPLODE, objects[i]);
       objects[i].explosion = objects[i].size/2;
       return false;
@@ -357,8 +407,18 @@ function removeObject(i) {
   return true;
 }
 
+function boost(object, dir) {
+  object.xVel = 0;
+  object.yVel = 0;
+  object.dVel = 0;
+  let pivot = (dir === 'Up') ? object.dir : (dir === 'Left') ? object.dir-PI/2 : object.dir+PI/2;
+  if (Math.abs(pivot) > PI) { pivot-= Math.sign(pivot)*2*PI; }
+  accelerate(object, boostSpeed, pivot);
+  object.wait.boost = new Date();
+}
+
 function drawShip(object) {
-  if (typeof(object.explosion) !== "undefined") {
+  if (typeof(object.explosion) !== 'undefined') {
     drawExplosion(object);
     return;
   }
@@ -381,17 +441,17 @@ function drawFlames(object) {
   resetMatrix();
   translate(object.xPos - ship.xPos + width/2, object.yPos - ship.yPos + height/2);
   rotate(object.dir);
-  fill("red");
+  fill('red');
   let size = object.size;
   if (object.flame.back) {
     triangle(-size/2, -flameSize*size/40, -size/2, flameSize*size/40, -size/2 - flameSize*size/40*2, 0);
   }
   if (object.flame.left) {
-    fill("red");
+    fill('red');
     triangle(-size/3.5, -flameSize*size/80 + size/2, -size/3.5, flameSize*size/80 + size/2, -size/3.5 - flameSize*size/80*2, size/2);
   }
   if (object.flame.right) {
-    fill("red");
+    fill('red');
     triangle(-size/3.5, -flameSize*size/80 - size/2, -size/3.5, flameSize*size/80 - size/2, -size/3.5 - flameSize*size/80*2, -size/2);
   }
 }
@@ -438,13 +498,15 @@ function getArrow(object) {
 }
 
 function randomColor() {
-  return [Math.random()*255, Math.random()*255, Math.random()*255];
+  let min = [0,0,0];
+  min[parseInt(Math.random()*3)] = 50;
+  return [min[0]+Math.random()*200, min[1]+Math.random()*200, min[2]+Math.random()*200];
 }
 
 function generateStars() {
   stars = [];
   for (let i=0; i < totalStars; i++) {
-   stars.push({xPos: Math.random() * width, yPos: Math.random() * height, color:"white"});
+   stars.push({xPos: Math.random() * width, yPos: Math.random() * height, color:'white'});
   }
 }
 
@@ -511,18 +573,18 @@ function fireBullet(object, missile) {
     let size = height/35;
     playSound(sounds.MISSILE, object);
     object.wait.missile = new Date();
-    objects.push({type: types.BULLET, xPos: object.xPos + Math.cos(object.dir)*size*4, yPos: object.yPos + Math.sin(object.dir)*size*4, dir: object.dir, xVel: object.xVel + Math.cos(object.dir)*speed, yVel: object.yVel + Math.sin(object.dir)*speed, dVel: 0, friction: ship.friction, spinFriction: ship.spinFriction, maxSpeed: ship.maxSpeed, maxRotation: ship.maxRotation, size: size, color: "red", end: false, missile: true, parent: object, target: null});
+    objects.push({type: types.BULLET, xPos: object.xPos + Math.cos(object.dir)*size*4, yPos: object.yPos + Math.sin(object.dir)*size*4, dir: object.dir, xVel: object.xVel + Math.cos(object.dir)*speed, yVel: object.yVel + Math.sin(object.dir)*speed, dVel: 0, friction: ship.friction, spinFriction: ship.spinFriction, maxSpeed: ship.maxSpeed, maxRotation: ship.maxRotation, size: size, color: 'red', end: false, missile: true, parent: object, target: null});
   } else {
     let size = height/70;
     playSound(sounds.SHOOT, object);
-    objects.push({type: types.BULLET, xPos: object.xPos + Math.cos(object.dir)*size*6, yPos: object.yPos + Math.sin(object.dir)*size*6, dir: object.dir, xVel: object.xVel + Math.cos(object.dir)*speed, yVel: object.yVel + Math.sin(object.dir)*speed, dVel: 0, friction: 0.998, spinFriction: ship.spinFriction, maxSpeed: 40, maxRotation: 25, size: size, color: "cyan", end: false, missile: false, parent: object});
+    objects.push({type: types.BULLET, xPos: object.xPos + Math.cos(object.dir)*size*6, yPos: object.yPos + Math.sin(object.dir)*size*6, dir: object.dir, xVel: object.xVel + Math.cos(object.dir)*speed, yVel: object.yVel + Math.sin(object.dir)*speed, dVel: 0, friction: 0.998, spinFriction: ship.spinFriction, maxSpeed: 40, maxRotation: 25, size: size, color: 'cyan', end: false, missile: false, parent: object});
   }
 }
 
 function drawBullet(object) {
   fill(object.color);
   if (object.missile) {
-    if (typeof(object.explosion) !== "undefined") {
+    if (typeof(object.explosion) !== 'undefined') {
       drawExplosion(object);
       return;
     }
