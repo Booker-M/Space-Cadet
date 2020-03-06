@@ -213,7 +213,8 @@ function drawUI() {
   length = (Math.min(1, ((new Date() - ship.wait.boost)/boostWait)))*150;
   rect(60 + length/2, 60, length, 10);
   
-  fill("white")
+  fill("white");
+  textFont('Consolas');
   textSize(32);
   text(ship.kills, width - 50 - (ship.kills > 9 ? parseInt(ship.kills/10).toString().length*16 : 0), 50);
 }
