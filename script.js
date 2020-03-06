@@ -20,7 +20,7 @@ let bulletWait = 250,
 
 let lastKey = {up: false, down: false, left: false, right: false, bullet: false};
 let lastKeyTime = {up: 0, down: 0, left: 0, right: 0, bullet: 0};
-let delta = 300;
+let delta = 150;
 
 const music = [
   new Audio('http://soundimage.org/wp-content/uploads/2016/11/Automation.mp3')
