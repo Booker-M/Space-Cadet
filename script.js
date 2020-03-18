@@ -7,9 +7,9 @@ const moveSpeed = 0.25,
       rotateSpeed = 0.4,
       boostSpeed = 10;
 const totalStars = 200,
-      totalShips = 7,
+      totalShips = 6,
       totalPlanets = 6,
-      totalLoot = 4;
+      totalLoot = 3;
 let bounds;
 let maxPlanetSize,
     minPlanetSize;
@@ -76,7 +76,7 @@ function adjustSizes() {
 }
 
 function playSound(sound, object) {
-  distance = getDistance(object, ship);
+  distance = Math.max(0, getDistance(object, ship));
   if (distance < bounds/2) {
     sound.volume = (bounds/2-distance)/(bounds/2);
     sound.play();
@@ -356,7 +356,7 @@ function offScreen(object) {
 }
 
 function getDistance(a, b) {
-  return Math.sqrt(Math.pow(a.xPos - b.xPos, 2) + Math.pow(a.yPos - b.yPos, 2));
+  return Math.sqrt(Math.pow(a.xPos - b.xPos, 2) + Math.pow(a.yPos - b.yPos, 2)) - a.size/2 - b.size/2;
 }
 
 function getSpeed(a, b) {
@@ -372,7 +372,7 @@ function getVelDir(a) {
 }
 
 function collision(a, b) {
-  return getDistance(a, b) < a.size/2 + b.size/2;
+  return getDistance(a, b) <= 0;
 }
 
 function fix(i) {
@@ -683,11 +683,13 @@ function genShip() {
 }
 
 function lockTarget(a, b) {
-  if ((a.type !== types.SHIP || a === ship) && (a.type !== types.BULLET || !a.missile || a.parent === b) || (b.type !== types.SHIP && (b.type !== types.BULLET || !b.missile) && b.type !== types.LOOT)) { return; }
+  if (((a.type !== types.SHIP || a === ship) && (a.type !== types.BULLET || !a.missile || a.parent === b)) || (b.type !== types.SHIP && b.type !== types.LOOT && (b.type !== types.BULLET || !b.missile) && (a.type === types.SHIP || b.type !== types.PLANET))) { return; }
   if (a.target != null) {
     if (a.target === b) { return; }
     let distance = getDistance(a, b);
-    if (distance >= a.size*4 + getDistance(a, a.target)) { return; }
+    if (b.type === types.PLANET) {
+      if (distance >= getDistance(a, a.target)*0.8) { return; }
+    } else if (distance >= getDistance(a, a.target)*1.3) { return; }
   }
   let direction = getDir(b, a);
   let diff = direction - a.dir;
@@ -700,22 +702,29 @@ function trackTarget(object) {
   if (((object.type !== types.SHIP || object === ship) && (object.type !== types.BULLET || !object.missile)) || object.target == null) { return; }
   object.flame = {back: false, left: false, right: false};
   let direction = getDir(object.target, object);
+  if (object.target.type === types.PLANET) { direction += PI; }
   let distance = getDistance(object, object.target);
   let diff = direction - object.dir;
   if (Math.abs(diff) > PI) { diff-= Math.sign(diff)*2*PI; }
   spin(object, diff/(PI));
-  let speedDiff = Math.max(0, getSpeed(object.target) - getSpeed(object));
-  let speed = ((distance > object.target.size*10) || object.type === types.BULLET) ? moveSpeed*0.7 : Math.min(moveSpeed*0.2, speedDiff);
+  let speed = moveSpeed*0.7;
+  if (object.target.type === types.PLANET) {
+    if (distance < object.target.size*2) { let speed = moveSpeed; }
+  } else {
+    let speedDiff = Math.max(0, getSpeed(object.target) - getSpeed(object));
+    if (distance < object.target.size*10 && !object.type === types.BULLET) { let speed = Math.min(moveSpeed*0.2, speedDiff); }
+  }
   accelerate(object, speed, direction);
   object.flame.back = true;
   if (object.type === types.SHIP) {
     diff > 0 ? object.flame.right = true : object.flame.left = true;
+    if (object.target.type === types.PLANET) { return; }
     currentTime = new Date();
     if (distance < object.size*3) {
-      if (currentTime - object.wait.boost >= boostWait*2) { boost(object, 'Up'); }
+      if (currentTime - object.wait.boost >= boostWait*2.5) { boost(object, 'Up'); }
     } else if (distance < height/2) {
-      if (currentTime - object.wait.missile >= missileWait*2) { fireBullet(object, true); }
-      else if (currentTime - object.wait.bullet >= bulletWait*2 && currentTime - object.wait.missile >= missileWait*2*0.05) { fireBullet(object, false); }
+      // if (currentTime - object.wait.missile >= missileWait*2.5) { fireBullet(object, true); }
+      // else if (currentTime - object.wait.bullet >= bulletWait*2 && currentTime - object.wait.missile >= missileWait*2*0.05) { fireBullet(object, false); }
     }
   }
 }
