@@ -1,7 +1,7 @@
 let newGame = true;
 let gameStart;
 
-const types = { SHIP: 'Ship', PLANET: 'Planet', BULLET: 'Bullet'};
+const types = { SHIP: 'Ship', PLANET: 'Planet', BULLET: 'Bullet', DEBRIS: 'Debris'};
 let ship = {};
 const moveSpeed = 0.25,
       rotateSpeed = 0.4,
@@ -166,7 +166,7 @@ function refresh() {
       trackTarget(objects[i]);
     }
     if (outOfBounds(objects[i])) { fix(i); }
-    if (objects[i].type === types.BULLET && !objects[i].missile && parseInt(getSpeed(objects[i])) < 3) { objects[i].end = true; }
+    if (((objects[i].type === types.BULLET && !objects[i].missile) || objects[i].type === types.DEBRIS) && parseInt(getSpeed(objects[i])) < 3) { objects[i].end = true; }
     if (objects[i].end === true && endObject(i)) { i--; continue; }
     for (let j = i + 1; j < objects.length; j++) {
       if (collision(objects[i], objects[j])) { collide(objects[i], objects[j]); }
@@ -302,6 +302,7 @@ function drawObject(object) {
     case types.SHIP: drawShip(object); break;
     case types.PLANET: drawPlanet(object); break;
     case types.BULLET: drawBullet(object); break;
+    case types.DEBRIS: drawDebris(object); break;
   }
 }
 
@@ -368,7 +369,7 @@ function collide(a, b) {
       both[i].dVel = 0;
     }
   }
-  if (a.end || b.end) { return; }
+  if (a.end || b.end || a.type === types.DEBRIS || b.type === types.DEBRIS) { return; }
   for (i = 0; i < 2; i++) {
     if (both[i].type !== types.PLANET) {
       if (both[i].type === types.BULLET && both[i===0?1:0].type === types.SHIP) {
@@ -384,6 +385,9 @@ function endObject(i) {
     if(typeof(objects[i].explosion) === 'undefined') {
       playSound(sounds.EXPLODE, objects[i]);
       objects[i].explosion = objects[i].size/2;
+      if (objects[i].type === types.SHIP) {
+        for (let j = 0; j < 4; j++) { genDebris(objects[i]); }
+      }
       return false;
     } else {
        if (objects[i].explosion > objects[i].size*2) {
@@ -606,8 +610,8 @@ function generateShips() {
 function genShip() {
   let xOrY = parseInt(Math.random()+0.5);
   let size = ship.size;
-    let x = Math.sign(Math.random()-0.5) * (Math.random()*bounds + (width + size)*xOrY)/2 + ship.xPos;
-  let y = Math.sign(Math.random()-0.5) * (Math.random()*bounds + (height + size)*(1-xOrY))/2 + ship.yPos;
+  let x = Math.sign(Math.random()-0.5) * (Math.random()*bounds + (width + size)*xOrY)/2 + ship.xPos,
+      y = Math.sign(Math.random()-0.5) * (Math.random()*bounds + (height + size)*(1-xOrY))/2 + ship.yPos;
   let newShip = {type: types.SHIP, xPos: x, yPos: y, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: ship.friction, spinFriction: ship.spinFriction, maxSpeed: ship.maxSpeed, maxRotation: ship.maxRotation, size: size, color: randomColor(), end: false, wait: {bullet: new Date(), missile: new Date(), boost: new Date()}, flame: {back: false, left: false, right: false}, kills: 0, target: null};
   for (let i = 0; i < objects.length; i++) {
     if (collision(newShip, objects[i])) { return genShip(); }
@@ -648,5 +652,29 @@ function trackTarget(object) {
       if (currentTime - object.wait.missile >= missileWait*2) { fireBullet(object, true); }
       else if (currentTime - object.wait.bullet >= bulletWait*2 && currentTime - object.wait.missile >= missileWait*2*0.05) { fireBullet(object, false); }
     }
+  }
+}
+
+function genDebris(object) {
+  let size = object.size/4;
+  let dir = Math.random()*2*PI - PI,
+      x = object.xPos + 10*cos(dir),
+      y = object.yPos + 10*sin(dir),
+      xVel = object.xVel + 5*cos(dir),
+      yVel = object.yVel + 5*sin(dir),
+      dVel = Math.random()*10 - 5;
+  let color = parseInt(Math.random() + 0.5) === 0 ? object.color : 200;
+  let shape = parseInt(Math.random() + 0.5) === 0 ? 'Triangle' : 'Rectangle';
+  let newDebris = {type: types.DEBRIS, xPos: x, yPos: y, dir: dir, xVel: xVel, yVel: yVel, dVel: dVel, friction: 0.995, spinFriction: 0.998, maxSpeed: ship.maxSpeed, maxRotation: ship.maxRotation, size: size, color: color, end: false, shape: shape};
+  objects.push(newDebris);
+}
+
+function drawDebris(object) {
+  let size = object.size;
+  fill(object.color);
+  if (object.shape === 'Triangle') {
+    triangle(-size/2, -size/2, -size/2, size/2, size/2, 0);
+  } else {
+    rect(0, 0, size, size);
   }
 }
