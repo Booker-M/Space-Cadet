@@ -158,21 +158,24 @@ function keys() {
   } else {
     lastKey.bullet = false;
   }
-  if (keyIsDown(90)) { reset(); }
+  if (keyIsDown(90)) {
+    let thisKeyTime = new Date();
+    if (thisKeyTime - gameStart > 500) { reset(); }
+  }
 }
 
 function refresh() {
   drawStars();
   flameFlicker();
   for (let i = 0; i < objects.length; i++) {
-    if (objects[i].type !== types.PLANET && objects[i].type !== types.SMOKE) {
+    if (objects[i].type === types.SHIP || objects[i].type === types.BULLET || objects[i].type === types.DEBRIS) {
       move(objects[i]);
       trackTarget(objects[i]);
     }
     if (outOfBounds(objects[i])) { fix(i); }
     if (((objects[i].type === types.BULLET && !objects[i].missile) || objects[i].type === types.DEBRIS) && parseInt(getSpeed(objects[i])) < 3) { objects[i].end = true; }
-    if (objects[i].type === types.SMOKE) {
-      if (objects[i].fade > 0) { objects[i].fade--; }
+    if (objects[i].type === types.SMOKE || objects[i].type === types.BLUR) {
+      if (objects[i].fade > 0) { objects[i].type === types.SMOKE ? objects[i].fade-- : objects[i].fade-= 10; }
       else { objects[i].end = true; }
     }
     if (objects[i].type === types.SHIP) {
@@ -236,10 +239,10 @@ function tutorial() {
     textFont('Consolas');
     textStyle(BOLD);
     textSize(width/10);
-    fill(255, 255, 255, Math.min(gap, hold - gap));
+    fill(200, Math.min(gap, hold - gap));
     textAlign(RIGHT, CENTER);
     text('Space', width/2-10, height/3);
-    fill(255, 0, 0, Math.min(gap, hold - gap));
+    fill(ship.color[0], ship.color[1], ship.color[2], Math.min(gap, hold - gap));
     textAlign(LEFT, CENTER);
     text('Cadet', width/2+10, height/3);
   } else if (gap < hold*2) {
@@ -317,6 +320,7 @@ function drawObject(object) {
     case types.BULLET: drawBullet(object); break;
     case types.DEBRIS: drawDebris(object); break;
     case types.SMOKE: drawSmoke(object); break;
+    case types.BLUR: drawBlur(object); break;
   }
 }
 
@@ -375,7 +379,7 @@ function fix(i) {
 }
 
 function collide(a, b) {
-  if (a.type === types.SMOKE || b.type === types.SMOKE) { return; }
+  if (a.type === types.SMOKE || b.type === types.SMOKE || a.type === types.BLUR || b.type === types.BLUR) { return; }
   let both = [a, b];
   for (i = 0; i < 2; i++) {
     if (both[i].type !== types.PLANET && both[i===0?1:0].type === types.PLANET) {
@@ -471,8 +475,10 @@ function drawShip(object) {
   fill(175);
   ellipse(size/20,0,size/7,size/7);
   if (object.boost > 0) { drawBoost(object); }
-  else if (object.shield > 0) { drawShield(object); }
-  else { drawFlames(object); }
+  else {
+    drawFlames(object);
+    if (object.shield > 0) { drawShield(object); }
+  }
 }
 
 function drawFlames(object) {
@@ -511,7 +517,10 @@ function drawBoost(object) {
   fill(0, 160, 255, 100);
   let size = object.size;
   ellipse(-10, 0, flameSize + size*2.3, flameSize + size*1.3);
-  if (flameSize === 10 || flameSize === 7.5 || flameSize === 5) { genSmoke(object); }
+  if (flameSize === 10 || flameSize === 7.5 || flameSize === 5) {
+    genSmoke(object);
+    genBlur(object);
+  }
 }
 
 function drawShield(object) {
@@ -626,7 +635,7 @@ function fireBullet(object, missile) {
     let size = height/35;
     playSound(sounds.MISSILE, object);
     object.wait.missile = new Date();
-    objects.push({type: types.BULLET, xPos: object.xPos + Math.cos(object.dir)*size*4, yPos: object.yPos + Math.sin(object.dir)*size*4, dir: object.dir, xVel: object.xVel + Math.cos(object.dir)*speed, yVel: object.yVel + Math.sin(object.dir)*speed, dVel: 0, friction: ship.friction, spinFriction: ship.spinFriction, maxSpeed: ship.maxSpeed, maxRotation: ship.maxRotation, size: size, color: 'red', end: false, missile: true, parent: object, target: null});
+    objects.push({type: types.BULLET, xPos: object.xPos + Math.cos(object.dir)*size*4, yPos: object.yPos + Math.sin(object.dir)*size*4, dir: object.dir, xVel: object.xVel + Math.cos(object.dir)*speed, yVel: object.yVel + Math.sin(object.dir)*speed, dVel: 0, friction: ship.friction, spinFriction: ship.spinFriction, maxSpeed: ship.maxSpeed, maxRotation: ship.maxRotation, size: size, color: 'red', end: false, missile: true, parent: object, target: null, flame: {back: false, left: false, right: false}});
   } else {
     let size = height/70;
     playSound(sounds.SHOOT, object);
@@ -646,6 +655,7 @@ function drawBullet(object) {
     rect(0, 0, size, size/2);
     fill(object.color);
     triangle(size/2, -size/4, size/2, size/4, size, 0);
+    drawFlames(object);
   } else { ellipse(0, 0, object.size, object.size); }
 }
 
@@ -683,17 +693,17 @@ function lockTarget(a, b) {
 
 function trackTarget(object) {
   if (((object.type !== types.SHIP || object === ship) && (object.type !== types.BULLET || !object.missile)) || object.target == null) { return; }
-  if (object.type === types.SHIP) { object.flame = {back: false, left: false, right: false}; };
+  object.flame = {back: false, left: false, right: false};
   let direction = getDir(object.target, object);
   let distance = getDistance(object, object.target);
   let diff = direction - object.dir;
   if (Math.abs(diff) > PI) { diff-= Math.sign(diff)*2*PI; }
   spin(object, diff/(PI));
   let speedDiff = Math.max(0, getSpeed(object.target) - getSpeed(object));
-  let speed = ((distance > object.target.size*10) || object.type === types.BULLET) ? moveSpeed*0.5 : Math.min(moveSpeed*0.2, speedDiff + 0);
+  let speed = ((distance > object.target.size*10) || object.type === types.BULLET) ? moveSpeed*0.5 : Math.min(moveSpeed*0.2, speedDiff);
   accelerate(object, speed, direction);
+  object.flame.back = true;
   if (object.type === types.SHIP) {
-    object.flame.back = true;
     diff > 0 ? object.flame.right = true : object.flame.left = true;
     currentTime = new Date();
     if (distance < object.size*3) {
@@ -742,4 +752,24 @@ function drawSmoke(object) {
   let size = object.size;
   fill(100, 100, 100, object.fade);
   ellipse(0, 0, size);
+}
+
+function genBlur(object) {
+  let newBlur = {type: types.BLUR, xPos: object.xPos, yPos: object.yPos, dir: object.dir, xVel: 0, yVel: 0, dVel: 0, friction: 0, spinFriction: 0, maxSpeed: 0, maxRotation: 0, size: object.size, color: object.color, end: false, fade: 250};
+  objects.push(newBlur);
+}
+
+function drawBlur(object) {
+  let size = object.size;
+  fill(object.color[0], object.color[1], object.color[2], object.fade);
+  triangle(-size/2, -size/5, -size/2, size/5, size/4, 0);
+  triangle(-size/3.5, -size/1.5, -size/3.5, size/1.5, size/3, 0);
+  fill(200, object.fade);
+  rect(0, 0, size/1.4, size/3.7);
+  fill(object.color[0], object.color[1], object.color[2], object.fade);
+  triangle(size/3, -size/7, size/3, size/7, size/1.7, 0);
+  fill(100, object.fade);
+  ellipse(size/20,0,size/6,size/6);
+  fill(175, object.fade);
+  ellipse(size/20,0,size/7,size/7);
 }
