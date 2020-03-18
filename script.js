@@ -732,8 +732,8 @@ function drawDebris(object) {
 function genSmoke(object) {
   let size = object.size/5 + Math.random()*object.size/7;
   let dir = object.dir,
-      x = object.xPos - object.size/2*cos(dir),
-      y = object.yPos - object.size/2*sin(dir);
+      x = object.xPos - object.size/1.5*cos(dir),
+      y = object.yPos - object.size/1.5*sin(dir);
   let newSmoke = {type: types.SMOKE, xPos: x, yPos: y, dir: dir, xVel: 0, yVel: 0, dVel: 0, friction: 0, spinFriction: 0, maxSpeed: 0, maxRotation: 0, size: size, end: false, fade: 255};
   objects.push(newSmoke);
 }
