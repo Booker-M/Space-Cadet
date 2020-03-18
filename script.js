@@ -64,7 +64,7 @@ function windowResized() {
 }
 
 function adjustSizes() {
-  bounds = width*5;
+  bounds = 480*10 + width;
   maxPlanetSize = height;
   minPlanetSize = height/5;
 }
@@ -182,13 +182,14 @@ function drawUI() {
   resetMatrix();
   fill('red');
   let s = 15;
-  translate(40,31);
+  translate(40,40);
   rotate(-PI/5);
   triangle(s/2, -s/4, s/2, s/4, s, 0);
   fill(200);
   rect(0, 0, s, s/2);
   
   resetMatrix();
+  translate(0,10);
   fill(100);
   rect(135, 30, 150, 10);
   fill('red');
@@ -208,7 +209,7 @@ function drawUI() {
   fill('white');
   textFont('Consolas');
   textSize(32);
-  text(ship.kills, width - 50 - (ship.kills > 9 ? parseInt(ship.kills/10).toString().length*16 : 0), 50);
+  text(ship.kills, width - 50 - (ship.kills > 9 ? parseInt(ship.kills/10).toString().length*16 : 0), 40);
   
   if (newGame) { tutorial(); }
 }
@@ -637,7 +638,7 @@ function trackTarget(object) {
   if (Math.abs(diff) > PI) { diff-= Math.sign(diff)*2*PI; }
   spin(object, diff/(PI));
   let speedDiff = Math.max(0, getSpeed(object.target) - getSpeed(object));
-  let speed = ((distance > object.target.size*10) || object.type === types.BULLET) ? moveSpeed*0.6 : Math.min(moveSpeed*0.3, speedDiff + 0);
+  let speed = ((distance > object.target.size*10) || object.type === types.BULLET) ? moveSpeed*0.5 : Math.min(moveSpeed*0.2, speedDiff + 0);
   accelerate(object, speed, direction);
   if (object.type === types.SHIP) {
     object.flame.back = true;
