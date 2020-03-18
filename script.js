@@ -1,14 +1,15 @@
 let newGame = true;
 let gameStart;
 
-const types = { SHIP: 'Ship', PLANET: 'Planet', BULLET: 'Bullet', DEBRIS: 'Debris', SMOKE: 'Smoke'};
+const types = { SHIP: 'Ship', PLANET: 'Planet', BULLET: 'Bullet', DEBRIS: 'Debris', SMOKE: 'Smoke', LOOT: 'Loot'};
 let ship = {};
 const moveSpeed = 0.25,
       rotateSpeed = 0.4,
       boostSpeed = 10;
 const totalStars = 200,
+      totalShips = 7,
       totalPlanets = 6,
-      totalShips = 7;
+      totalLoot = 4;
 let bounds;
 let maxPlanetSize,
     minPlanetSize;
@@ -17,7 +18,7 @@ let flameGrow = true;
 let stars = [];
 let objects = [];
 let boostTime = 50,
-    shieldTime = 250*30;
+    shieldTime = 2500;
 let bulletWait = 250,
     missileWait = 250*15,
     boostWait = 250*15;
@@ -32,7 +33,7 @@ let trackLength = 0.0;
 const music = [
   new Audio('http://soundimage.org/wp-content/uploads/2016/11/Automation.mp3')
 ];
-const sounds = { //https://freesound.org/people/ProjectsU012/packs/18837/?page=3#sound
+const sounds = { //https://freesound.org/people/ProjectsU012/packs/18837
   SHOOT: new Audio('https://freesound.org/data/previews/459/459145_6142149-lq.mp3'),
   EXPLODE: new Audio('https://audiosoundclips.com/wp-content/uploads/2019/10/8-Bit-SFX_Explosion-2.mp3'),
   MISSILE: new Audio('https://freesound.org/data/previews/404/404754_140737-lq.mp3'),
@@ -60,6 +61,7 @@ function reset() {
 function generation() {
   generatePlanets();
   generateShips();
+  generateLoot();
 }
 
 function windowResized() {
@@ -181,7 +183,7 @@ function refresh() {
     if (objects[i].type === types.SHIP) {
       if (objects[i].boost > 0) { objects[i].boost--; }
       if (objects[i].shield > 1) { objects[i].shield--; }
-      else if (objects[i].shield === 1) { shield(objects[i]); }
+      else if (objects[i].shield === 1) { shield(objects[i], true); }
     }
     if (objects[i].end === true && endObject(i)) { i--; continue; }
     for (let j = i + 1; j < objects.length; j++) {
@@ -321,6 +323,7 @@ function drawObject(object) {
     case types.DEBRIS: drawDebris(object); break;
     case types.SMOKE: drawSmoke(object); break;
     case types.BLUR: drawBlur(object); break;
+    case types.LOOT: drawLoot(object); break;
   }
 }
 
@@ -374,7 +377,6 @@ function collision(a, b) {
 
 function fix(i) {
   if (objects[i] === ship) { return; }
-  if (objects[i].type === types.PLANET) { objects[i] = genPlanet(); }
   else { objects[i].end = true; }
 }
 
@@ -392,15 +394,19 @@ function collide(a, b) {
   for (i = 0; i < 2; i++) {
     if (both[i].type !== types.PLANET) {
       if (both[i].type === types.SHIP && both[i===0?1:0].type !== types.PLANET) {
+        if (both[i===0?1:0].type === types.LOOT) { continue; }
         if (both[i].boost > 0 || both[i].shield > 0) {
           if (both[i===0?1:0].type === types.SHIP && both[i===0?1:0].boost === 0 && both[i===0?1:0].shield === 0) {
             both[i].kills++;
           }
-          if (both[i].boost === 0 && both[i].shield > 0) { shield(both[i]); }
+          if (both[i].boost === 0 && both[i].shield > 0) { shield(both[i], true); }
           continue;
         }
       } else if (both[i].type === types.BULLET && both[i===0?1:0].type === types.SHIP && both[i===0?1:0].boost === 0 && both[i===0?1:0].shield === 0) {
         both[i].parent.kills++;
+      } else if (both[i].type === types.LOOT) {
+        if (both[i===0?1:0].type === types.SHIP) { shield(both[i===0?1:0], false); }
+        if (both[i===0?1:0].type === types.BULLET) { shield(both[i===0?1:0].parent, false); }
       }
       both[i].end = true;
     }
@@ -428,9 +434,9 @@ function endObject(i) {
        }
     }
   }
-  else { 
-    return removeObject(i);
-  }
+  else if (objects[i].type === types.LOOT) { objects[i] = genLoot(); }
+  else if (objects[i].type === types.PLANET) { objects[i] = genPlanet(); } 
+  else { return removeObject(i); }
 }
 
 function removeObject(i) {
@@ -451,9 +457,8 @@ function boost(object, dir) {
   object.wait.boost = new Date();
 }
 
-function shield(object) {
-  if (object.shield === 0) { object.shield = shieldTime; }
-  else { object.shield = 0; }
+function shield(object, end) {
+  object.shield = end ? 0 : shieldTime;
   playSound(sounds.SHIELD, object);
 }
 
@@ -635,11 +640,11 @@ function fireBullet(object, missile) {
     let size = height/35;
     playSound(sounds.MISSILE, object);
     object.wait.missile = new Date();
-    objects.push({type: types.BULLET, xPos: object.xPos + Math.cos(object.dir)*size*4, yPos: object.yPos + Math.sin(object.dir)*size*4, dir: object.dir, xVel: object.xVel + Math.cos(object.dir)*speed, yVel: object.yVel + Math.sin(object.dir)*speed, dVel: 0, friction: ship.friction, spinFriction: ship.spinFriction, maxSpeed: ship.maxSpeed, maxRotation: ship.maxRotation, size: size, color: 'red', end: false, missile: true, parent: object, target: null, flame: {back: false, left: false, right: false}});
+    objects.push({type: types.BULLET, xPos: object.xPos + Math.cos(object.dir)*size*3, yPos: object.yPos + Math.sin(object.dir)*size*3, dir: object.dir, xVel: object.xVel + Math.cos(object.dir)*speed, yVel: object.yVel + Math.sin(object.dir)*speed, dVel: 0, friction: ship.friction, spinFriction: ship.spinFriction, maxSpeed: ship.maxSpeed, maxRotation: ship.maxRotation, size: size, color: 'red', end: false, missile: true, parent: object, target: null, flame: {back: false, left: false, right: false}});
   } else {
     let size = height/70;
     playSound(sounds.SHOOT, object);
-    objects.push({type: types.BULLET, xPos: object.xPos + Math.cos(object.dir)*size*6, yPos: object.yPos + Math.sin(object.dir)*size*6, dir: object.dir, xVel: object.xVel + Math.cos(object.dir)*speed, yVel: object.yVel + Math.sin(object.dir)*speed, dVel: 0, friction: 0.998, spinFriction: ship.spinFriction, maxSpeed: 40, maxRotation: 25, size: size, color: 'cyan', end: false, missile: false, parent: object});
+    objects.push({type: types.BULLET, xPos: object.xPos + Math.cos(object.dir)*size*4, yPos: object.yPos + Math.sin(object.dir)*size*4, dir: object.dir, xVel: object.xVel + Math.cos(object.dir)*speed, yVel: object.yVel + Math.sin(object.dir)*speed, dVel: 0, friction: 0.998, spinFriction: ship.spinFriction, maxSpeed: 40, maxRotation: 25, size: size, color: 'cyan', end: false, missile: false, parent: object});
   }
 }
 
@@ -678,7 +683,7 @@ function genShip() {
 }
 
 function lockTarget(a, b) {
-  if ((a.type !== types.SHIP || a === ship) && (a.type !== types.BULLET || !a.missile || a.parent === b) || (b.type !== types.SHIP && (b.type !== types.BULLET || !b.missile))) { return; }
+  if ((a.type !== types.SHIP || a === ship) && (a.type !== types.BULLET || !a.missile || a.parent === b) || (b.type !== types.SHIP && (b.type !== types.BULLET || !b.missile) && b.type !== types.LOOT)) { return; }
   if (a.target != null) {
     if (a.target === b) { return; }
     let distance = getDistance(a, b);
@@ -700,7 +705,7 @@ function trackTarget(object) {
   if (Math.abs(diff) > PI) { diff-= Math.sign(diff)*2*PI; }
   spin(object, diff/(PI));
   let speedDiff = Math.max(0, getSpeed(object.target) - getSpeed(object));
-  let speed = ((distance > object.target.size*10) || object.type === types.BULLET) ? moveSpeed*0.5 : Math.min(moveSpeed*0.2, speedDiff);
+  let speed = ((distance > object.target.size*10) || object.type === types.BULLET) ? moveSpeed*0.7 : Math.min(moveSpeed*0.2, speedDiff);
   accelerate(object, speed, direction);
   object.flame.back = true;
   if (object.type === types.SHIP) {
@@ -772,4 +777,28 @@ function drawBlur(object) {
   ellipse(size/20,0,size/6,size/6);
   fill(175, object.fade);
   ellipse(size/20,0,size/7,size/7);
+}
+
+function generateLoot() {
+  for (let i=0; i < totalLoot; i++) {
+   objects.push(genLoot());
+  }
+}
+
+function genLoot() {
+  let xOrY = parseInt(Math.random()+0.5);
+  let x = Math.sign(Math.random()-0.5) * (Math.random()*bounds + (width + 30)*xOrY)/2 + ship.xPos;
+  let y = Math.sign(Math.random()-0.5) * (Math.random()*bounds + (height + 30)*(1-xOrY))/2 + ship.yPos;
+  let newLoot = {type: types.LOOT, xPos: x, yPos: y, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: 0, spinFriction: 0, maxSpeed: 0, maxRotation: 0, size: 30, end: false};
+  for (let i = 0; i < objects.length; i++) {
+    if (collision(newLoot, objects[i])) { return genLoot(); }
+  }
+  return newLoot;
+}
+
+function drawLoot(object) {
+  fill(100);
+  rect(0, 0, object.size, object.size, object.size/10);
+  fill(175);
+  rect(0, 0, object.size*0.9, object.size*0.9, object.size*0.9/10);
 }
