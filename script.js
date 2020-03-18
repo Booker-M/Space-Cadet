@@ -72,7 +72,7 @@ function windowResized() {
 function adjustSizes() {
   bounds = 480*10 + width;
   maxPlanetSize = height;
-  minPlanetSize = height/5;
+  minPlanetSize = height/4;
 }
 
 function playSound(sound, object) {
