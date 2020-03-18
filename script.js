@@ -16,6 +16,8 @@ let flameSize = 5;
 let flameGrow = true;
 let stars = [];
 let objects = [];
+let boostTime = 50,
+    shieldTime = 250*30;
 let bulletWait = 250,
     missileWait = 250*15,
     boostWait = 250*15;
@@ -34,7 +36,8 @@ const sounds = { //https://freesound.org/people/ProjectsU012/packs/18837/?page=3
   SHOOT: new Audio('https://freesound.org/data/previews/459/459145_6142149-lq.mp3'),
   EXPLODE: new Audio('https://audiosoundclips.com/wp-content/uploads/2019/10/8-Bit-SFX_Explosion-2.mp3'),
   MISSILE: new Audio('https://freesound.org/data/previews/404/404754_140737-lq.mp3'),
-  BOOST: new Audio('https://freesound.org/data/previews/340/340956_5858296-lq.mp3')
+  BOOST: new Audio('https://freesound.org/data/previews/340/340956_5858296-lq.mp3'),
+  SHIELD: new Audio('https://freesound.org/data/previews/456/456613_5052309-lq.mp3')
 };
 
 function setup() {
@@ -47,7 +50,7 @@ function setup() {
 
 function reset() {
   startTime = new Date();
-  ship = {type: types.SHIP, xPos: 0, yPos: 0, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: 0.996, spinFriction: 0.97, maxSpeed: 10, maxRotation: 10, size: height/16, color: randomColor(), end: false, wait: {bullet: new Date(), missile: new Date(), boost: new Date()}, flame: {back: false, left: false, right: false}, kills: 0};
+  ship = {type: types.SHIP, xPos: 0, yPos: 0, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: 0.996, spinFriction: 0.97, maxSpeed: 10, maxRotation: 10, size: height/16, color: randomColor(), end: false, wait: {bullet: new Date(), missile: new Date(), boost: new Date()}, flame: {back: false, left: false, right: false}, kills: 0, boost: 0, shield: 0};
   objects = [ship];
   generateStars();
   gameStart = new Date();
@@ -172,6 +175,11 @@ function refresh() {
       if (objects[i].fade > 0) { objects[i].fade--; }
       else { objects[i].end = true; }
     }
+    if (objects[i].type === types.SHIP) {
+      if (objects[i].boost > 0) { objects[i].boost--; }
+      if (objects[i].shield > 1) { objects[i].shield--; }
+      else if (objects[i].shield === 1) { shield(objects[i]); }
+    }
     if (objects[i].end === true && endObject(i)) { i--; continue; }
     for (let j = i + 1; j < objects.length; j++) {
       if (collision(objects[i], objects[j])) { collide(objects[i], objects[j]); }
@@ -201,13 +209,13 @@ function drawUI() {
   let length = (Math.min(1, ((new Date() - ship.wait.missile)/missileWait)))*150;
   rect(60 + length/2, 30, length, 10);
   
-  fill('cyan');
+  fill(0, 150, 255);
   triangle(32, 53, 32, 68, 42, 60);
   triangle(32+10, 53, 32+10, 68, 42+10, 60);
   
   fill(100);
   rect(135, 60, 150, 10);
-  fill('cyan');
+  fill(0, 150, 255);
   length = (Math.min(1, ((new Date() - ship.wait.boost)/boostWait)))*150;
   rect(60 + length/2, 60, length, 10);
   
@@ -379,7 +387,15 @@ function collide(a, b) {
   if (a.end || b.end || a.type === types.DEBRIS || b.type === types.DEBRIS) { return; }
   for (i = 0; i < 2; i++) {
     if (both[i].type !== types.PLANET) {
-      if (both[i].type === types.BULLET && both[i===0?1:0].type === types.SHIP) {
+      if (both[i].type === types.SHIP && both[i===0?1:0].type !== types.PLANET) {
+        if (both[i].boost > 0 || both[i].shield > 0) {
+          if (both[i===0?1:0].type === types.SHIP && both[i===0?1:0].boost === 0 && both[i===0?1:0].shield === 0) {
+            both[i].kills++;
+          }
+          if (both[i].boost === 0 && both[i].shield > 0) { shield(both[i]); }
+          continue;
+        }
+      } else if (both[i].type === types.BULLET && both[i===0?1:0].type === types.SHIP && both[i===0?1:0].boost === 0 && both[i===0?1:0].shield === 0) {
         both[i].parent.kills++;
       }
       both[i].end = true;
@@ -427,7 +443,14 @@ function boost(object, dir) {
   if (Math.abs(pivot) > PI) { pivot-= Math.sign(pivot)*2*PI; }
   accelerate(object, boostSpeed, pivot);
   playSound(sounds.BOOST, object);
+  object.boost = boostTime;
   object.wait.boost = new Date();
+}
+
+function shield(object) {
+  if (object.shield === 0) { object.shield = shieldTime; }
+  else { object.shield = 0; }
+  playSound(sounds.SHIELD, object);
 }
 
 function drawShip(object) {
@@ -447,7 +470,9 @@ function drawShip(object) {
   ellipse(size/20,0,size/6,size/6);
   fill(175);
   ellipse(size/20,0,size/7,size/7);
-  drawFlames(object);
+  if (object.boost > 0) { drawBoost(object); }
+  else if (object.shield > 0) { drawShield(object); }
+  else { drawFlames(object); }
 }
 
 function drawFlames(object) {
@@ -457,11 +482,7 @@ function drawFlames(object) {
   fill('red');
   let size = object.size;
   let time = new Date();
-  if (time - gameStart > 550 && time - object.wait.boost <= 550) {
-    fill('cyan');
-    triangle(-size/2, -flameSize*size/40, -size/2, flameSize*size/40, -size/2 - flameSize*size/40*2, 0);
-    if (flameSize === 10 || flameSize === 7.5 || flameSize === 5) { genSmoke(object); }
-  } else if (object.flame.back) {
+  if (object.flame.back) {
     triangle(-size/2, -flameSize*size/40, -size/2, flameSize*size/40, -size/2 - flameSize*size/40*2, 0);
     if (flameSize === 10 || flameSize === 7.5 || flameSize === 5) { genSmoke(object); }
   }
@@ -476,15 +497,30 @@ function drawFlames(object) {
 function flameFlicker() {
   if (flameGrow) {
       flameSize += 0.5;
-      if (flameSize >= 10) {
-        flameGrow = false;
-      }
+      if (flameSize >= 10) { flameGrow = false; }
     } else {
       flameSize -= 0.5;
-      if (flameSize <= 5) {
-        flameGrow = true;
-      }
+      if (flameSize <= 5) { flameGrow = true; }
     }
+}
+
+function drawBoost(object) {
+  resetMatrix();
+  translate(object.xPos - ship.xPos + width/2, object.yPos - ship.yPos + height/2);
+  rotate(getVelDir(object));
+  fill(0, 160, 255, 100);
+  let size = object.size;
+  ellipse(-10, 0, flameSize + size*2.3, flameSize + size*1.3);
+  if (flameSize === 10 || flameSize === 7.5 || flameSize === 5) { genSmoke(object); }
+}
+
+function drawShield(object) {
+  resetMatrix();
+  translate(object.xPos - ship.xPos + width/2, object.yPos - ship.yPos + height/2);
+  rotate(object.dir);
+  fill(255, 0, 255, 50);
+  let size = object.size;
+  ellipse(-3, 0, flameSize + size*1.7, flameSize + size*1.3);
 }
 
 function drawExplosion(object) {
@@ -624,7 +660,7 @@ function genShip() {
   let size = ship.size;
   let x = Math.sign(Math.random()-0.5) * (Math.random()*bounds + (width + size)*xOrY)/2 + ship.xPos,
       y = Math.sign(Math.random()-0.5) * (Math.random()*bounds + (height + size)*(1-xOrY))/2 + ship.yPos;
-  let newShip = {type: types.SHIP, xPos: x, yPos: y, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: ship.friction, spinFriction: ship.spinFriction, maxSpeed: ship.maxSpeed, maxRotation: ship.maxRotation, size: size, color: randomColor(), end: false, wait: {bullet: new Date(), missile: new Date(), boost: new Date()}, flame: {back: false, left: false, right: false}, kills: 0, target: null};
+  let newShip = {type: types.SHIP, xPos: x, yPos: y, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: ship.friction, spinFriction: ship.spinFriction, maxSpeed: ship.maxSpeed, maxRotation: ship.maxRotation, size: size, color: randomColor(), end: false, wait: {bullet: new Date(), missile: new Date(), boost: new Date()}, flame: {back: false, left: false, right: false}, kills: 0, boost: 0, shield: 0, target: null};
   for (let i = 0; i < objects.length; i++) {
     if (collision(newShip, objects[i])) { return genShip(); }
   }
@@ -659,8 +695,10 @@ function trackTarget(object) {
   if (object.type === types.SHIP) {
     object.flame.back = true;
     diff > 0 ? object.flame.right = true : object.flame.left = true;
-    if (distance < height/2) {
-      currentTime = new Date();
+    currentTime = new Date();
+    if (distance < object.size*3) {
+      if (currentTime - object.wait.boost >= boostWait*2) { boost(object, 'Up'); }
+    } else if (distance < height/2) {
       if (currentTime - object.wait.missile >= missileWait*2) { fireBullet(object, true); }
       else if (currentTime - object.wait.bullet >= bulletWait*2 && currentTime - object.wait.missile >= missileWait*2*0.05) { fireBullet(object, false); }
     }
