@@ -1,7 +1,7 @@
 let newGame = true;
 let gameStart;
 
-const types = { SHIP: 'Ship', PLANET: 'Planet', BULLET: 'Bullet', DEBRIS: 'Debris'};
+const types = { SHIP: 'Ship', PLANET: 'Planet', BULLET: 'Bullet', DEBRIS: 'Debris', SMOKE: 'Smoke'};
 let ship = {};
 const moveSpeed = 0.25,
       rotateSpeed = 0.4,
@@ -33,7 +33,8 @@ const music = [
 const sounds = { //https://freesound.org/people/ProjectsU012/packs/18837/?page=3#sound
   SHOOT: new Audio('https://freesound.org/data/previews/459/459145_6142149-lq.mp3'),
   EXPLODE: new Audio('https://audiosoundclips.com/wp-content/uploads/2019/10/8-Bit-SFX_Explosion-2.mp3'),
-  MISSILE: new Audio('https://freesound.org/data/previews/404/404754_140737-lq.mp3')
+  MISSILE: new Audio('https://freesound.org/data/previews/404/404754_140737-lq.mp3'),
+  BOOST: new Audio('https://freesound.org/data/previews/340/340956_5858296-lq.mp3')
 };
 
 function setup() {
@@ -49,8 +50,8 @@ function reset() {
   ship = {type: types.SHIP, xPos: 0, yPos: 0, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: 0.996, spinFriction: 0.97, maxSpeed: 10, maxRotation: 10, size: height/16, color: randomColor(), end: false, wait: {bullet: new Date(), missile: new Date(), boost: new Date()}, flame: {back: false, left: false, right: false}, kills: 0};
   objects = [ship];
   generateStars();
-  if (newGame) { gameStart = new Date(); }
-  else { generation(); }
+  gameStart = new Date();
+  if (!newGame) { generation(); }
 }
 
 function generation() {
@@ -161,12 +162,16 @@ function refresh() {
   drawStars();
   flameFlicker();
   for (let i = 0; i < objects.length; i++) {
-    if (objects[i].type !== types.PLANET) {
+    if (objects[i].type !== types.PLANET && objects[i].type !== types.SMOKE) {
       move(objects[i]);
       trackTarget(objects[i]);
     }
     if (outOfBounds(objects[i])) { fix(i); }
     if (((objects[i].type === types.BULLET && !objects[i].missile) || objects[i].type === types.DEBRIS) && parseInt(getSpeed(objects[i])) < 3) { objects[i].end = true; }
+    if (objects[i].type === types.SMOKE) {
+      if (objects[i].fade > 0) { objects[i].fade--; }
+      else { objects[i].end = true; }
+    }
     if (objects[i].end === true && endObject(i)) { i--; continue; }
     for (let j = i + 1; j < objects.length; j++) {
       if (collision(objects[i], objects[j])) { collide(objects[i], objects[j]); }
@@ -303,6 +308,7 @@ function drawObject(object) {
     case types.PLANET: drawPlanet(object); break;
     case types.BULLET: drawBullet(object); break;
     case types.DEBRIS: drawDebris(object); break;
+    case types.SMOKE: drawSmoke(object); break;
   }
 }
 
@@ -361,6 +367,7 @@ function fix(i) {
 }
 
 function collide(a, b) {
+  if (a.type === types.SMOKE || b.type === types.SMOKE) { return; }
   let both = [a, b];
   for (i = 0; i < 2; i++) {
     if (both[i].type !== types.PLANET && both[i===0?1:0].type === types.PLANET) {
@@ -419,6 +426,7 @@ function boost(object, dir) {
   let pivot = (dir === 'Up') ? object.dir : (dir === 'Left') ? object.dir-PI/2 : object.dir+PI/2;
   if (Math.abs(pivot) > PI) { pivot-= Math.sign(pivot)*2*PI; }
   accelerate(object, boostSpeed, pivot);
+  playSound(sounds.BOOST, object);
   object.wait.boost = new Date();
 }
 
@@ -448,15 +456,19 @@ function drawFlames(object) {
   rotate(object.dir);
   fill('red');
   let size = object.size;
-  if (object.flame.back) {
+  let time = new Date();
+  if (time - gameStart > 550 && time - object.wait.boost <= 550) {
+    fill('cyan');
     triangle(-size/2, -flameSize*size/40, -size/2, flameSize*size/40, -size/2 - flameSize*size/40*2, 0);
+    if (flameSize === 10 || flameSize === 7.5 || flameSize === 5) { genSmoke(object); }
+  } else if (object.flame.back) {
+    triangle(-size/2, -flameSize*size/40, -size/2, flameSize*size/40, -size/2 - flameSize*size/40*2, 0);
+    if (flameSize === 10 || flameSize === 7.5 || flameSize === 5) { genSmoke(object); }
   }
   if (object.flame.left) {
-    fill('red');
     triangle(-size/3.5, -flameSize*size/80 + size/2, -size/3.5, flameSize*size/80 + size/2, -size/3.5 - flameSize*size/80*2, size/2);
   }
   if (object.flame.right) {
-    fill('red');
     triangle(-size/3.5, -flameSize*size/80 - size/2, -size/3.5, flameSize*size/80 - size/2, -size/3.5 - flameSize*size/80*2, -size/2);
   }
 }
@@ -620,7 +632,7 @@ function genShip() {
 }
 
 function lockTarget(a, b) {
-  if ((a.type !== types.SHIP || a === ship) && (a.type !== types.BULLET || !a.missile || a.parent === b)) { return; }
+  if ((a.type !== types.SHIP || a === ship) && (a.type !== types.BULLET || !a.missile || a.parent === b) || (b.type !== types.SHIP && (b.type !== types.BULLET || !b.missile))) { return; }
   if (a.target != null) {
     if (a.target === b) { return; }
     let distance = getDistance(a, b);
@@ -658,8 +670,8 @@ function trackTarget(object) {
 function genDebris(object) {
   let size = object.size/4;
   let dir = Math.random()*2*PI - PI,
-      x = object.xPos + 10*cos(dir),
-      y = object.yPos + 10*sin(dir),
+      x = object.xPos + size*cos(dir),
+      y = object.yPos + size*sin(dir),
       xVel = object.xVel + 5*cos(dir),
       yVel = object.yVel + 5*sin(dir),
       dVel = Math.random()*10 - 5;
@@ -677,4 +689,19 @@ function drawDebris(object) {
   } else {
     rect(0, 0, size, size);
   }
+}
+
+function genSmoke(object) {
+  let size = object.size/5 + Math.random()*object.size/7;
+  let dir = object.dir,
+      x = object.xPos - object.size/2*cos(dir),
+      y = object.yPos - object.size/2*sin(dir);
+  let newSmoke = {type: types.SMOKE, xPos: x, yPos: y, dir: dir, xVel: 0, yVel: 0, dVel: 0, friction: 0, spinFriction: 0, maxSpeed: 0, maxRotation: 0, size: size, end: false, fade: 255};
+  objects.push(newSmoke);
+}
+
+function drawSmoke(object) {
+  let size = object.size;
+  fill(100, 100, 100, object.fade);
+  ellipse(0, 0, size);
 }
