@@ -488,8 +488,8 @@ function flameFlicker() {
 }
 
 function drawExplosion(object) {
-  fill(200, 0, 0, 255*((object.size*2-object.explosion)/(object.size*2)+0.5));
-  ellipse(0, 0, object.explosion);
+  fill(200, 0, 0, 255*2*((object.size*2-object.explosion)/(object.size*2)));
+  ellipse(0, 0, object.explosion*1.5);
 }
 
 function drawArrow(object) {
@@ -670,10 +670,10 @@ function trackTarget(object) {
 function genDebris(object) {
   let size = object.size/4;
   let dir = Math.random()*2*PI - PI,
-      x = object.xPos + size*cos(dir),
-      y = object.yPos + size*sin(dir),
-      xVel = object.xVel + 5*cos(dir),
-      yVel = object.yVel + 5*sin(dir),
+      x = object.xPos + size*cos(dir)/2,
+      y = object.yPos + size*sin(dir)/2,
+      xVel = object.xVel + 4*cos(dir),
+      yVel = object.yVel + 4*sin(dir),
       dVel = Math.random()*10 - 5;
   let color = parseInt(Math.random() + 0.5) === 0 ? object.color : 200;
   let shape = parseInt(Math.random() + 0.5) === 0 ? 'Triangle' : 'Rectangle';
