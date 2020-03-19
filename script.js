@@ -108,12 +108,6 @@ function keys() {
     ship.flame.back = false;
     lastKey.up = false;
   }
-  // if (keyIsDown(DOWN_ARROW) || keyIsDown(83)) {
-  //   accelerate(ship, -0.1);
-  //   lastKey.down = true;
-  // } else {
-  //   lastKey.down = false;
-  // }
   if (keyIsDown(LEFT_ARROW) || keyIsDown(65)) {
     let thisKeyTime = new Date();
     if (thisKeyTime - lastKeyTime.left <= delta && !lastKey.left) {
@@ -233,59 +227,48 @@ function drawUI() {
 }
 
 function tutorial() {
-  resetMatrix();
   let currentTime = new Date();
   let hold = 5000;
   let gap = currentTime - gameStart;
   if (gap < hold) {
-    textFont('Consolas');
-    textStyle(BOLD);
-    textSize(width/10);
-    fill(200, Math.min(gap, hold - gap));
-    textAlign(RIGHT, CENTER);
-    text('Space', width/2-10, height/3);
-    fill(ship.color[0], ship.color[1], ship.color[2], Math.min(gap, hold - gap));
-    textAlign(LEFT, CENTER);
-    text('Cadet', width/2+10, height/3);
+    writeTitle(Math.min(gap, hold - gap));
   } else if (gap < hold*2) {
-    textFont('Consolas');
-    textStyle(BOLD);
-    textSize(width/40);
-    fill(255, 255, 255, Math.min(gap, hold*2 - gap));
-    textAlign(CENTER, CENTER);
-    text('Press [↑] or [W] to accelerate and [←] [→] or [A] [D] to rotate', width/2-10, height/3);
+    writeText(255, 255, 255, Math.min(gap, hold*2 - gap), 'Press [↑] or [W] to accelerate and [←] [→] or [A] [D] to rotate');
   } else if (gap < hold*3) {
-    textFont('Consolas');
-    textStyle(BOLD);
-    textSize(width/40);
-    fill(255, 255, 255, Math.min(gap, hold*3 - gap));
-    textAlign(CENTER, CENTER);
-    text('Press [Space] or [U] to shoot', width/2-10, height/3);
+    writeText(255, 255, 255, Math.min(gap, hold*3 - gap), 'Press [Space] or [U] to shoot');
   } else if (gap < hold*4) {
-    textFont('Consolas');
-    textStyle(BOLD);
-    textSize(width/40);
-    fill(255, 255, 255, Math.min(gap, hold*4 - gap));
-    textAlign(CENTER, CENTER);
-    text('Double-tap [↑] [←] [→] or [W] [A] [D] to boost', width/2-10, height/3);
+    writeText(255, 255, 255, Math.min(gap, hold*4 - gap), 'Double-tap [↑] [←] [→] or [W] [A] [D] to boost');
   } else if (gap < hold*5) {
-    textFont('Consolas');
-    textStyle(BOLD);
-    textSize(width/40);
-    fill(255, 255, 255, Math.min(gap, hold*5 - gap));
-    textAlign(CENTER, CENTER);
-    text('Double-tap [Space] or [U] to fire a missile', width/2-10, height/3);
+    writeText(255, 255, 255, Math.min(gap, hold*5 - gap), 'Double-tap [Space] or [U] to fire a missile');
   } else if (gap < hold*6) {
-    textFont('Consolas');
-    textStyle(BOLD);
-    textSize(width/40);
-    fill(255, 255, 255, Math.min(gap, hold*6 - gap));
-    textAlign(CENTER, CENTER);
-    text('Defeat enemy ships and avoid crashing into planets', width/2-10, height/3);
+    writeText(255, 255, 255, Math.min(gap, hold*6 - gap), 'Defeat enemy ships and avoid crashing into planets');
   } else {
     newGame = false;
     generation();
   }
+}
+
+function writeTitle(a) {
+  resetMatrix();
+  textFont('Consolas');
+  textStyle(BOLD);
+  textSize(width/10);
+  fill(200, a);
+  textAlign(RIGHT, CENTER);
+  text('Space', width/2-10, height/3);
+  fill(ship.color[0], ship.color[1], ship.color[2], a);
+  textAlign(LEFT, CENTER);
+  text('Cadet', width/2+10, height/3);
+}
+
+function writeText(a, b, c, d, string) {
+  resetMatrix();
+  textFont('Consolas');
+  textStyle(BOLD);
+  textSize(width/40);
+  fill(a, b, c, d);
+  textAlign(CENTER, CENTER);
+  text(string, width/2-10, height/3);
 }
 
 function playMusic() {
@@ -304,7 +287,7 @@ function move(object) {
   object.xVel = object.xVel * object.friction;
   object.yVel = object.yVel * object.friction;
   object.dir += radians(object.dVel);
-  if (Math.abs(object.dir) > PI) { object.dir -= Math.sign(object.dir)*2*PI; }
+  object.dir = checkDir(object.dir);
   object.xPos += object.xVel;
   object.yPos += object.yVel;
 }
@@ -329,7 +312,7 @@ function drawObject(object) {
 
 function accelerate(object, amount, dir = object.dir) {
   if (typeof(object.explosion) !== 'undefined') { return; }
-  if (Math.abs(dir) > PI) { dir-= Math.sign(dir)*2*PI; }
+  dir = checkDir(dir);
   object.xVel += Math.cos(dir)*amount;
   object.yVel += Math.sin(dir)*amount;
   let speed = getSpeed(object);
@@ -337,6 +320,15 @@ function accelerate(object, amount, dir = object.dir) {
     object.xVel -= (object.xVel/speed)*(speed - object.maxSpeed);
     object.yVel -= (object.yVel/speed)*(speed - object.maxSpeed);
   }
+}
+
+function checkDir(dir) {
+  if (Math.abs(dir) > PI) { dir-= Math.sign(dir)*2*PI; }
+  return dir;
+}
+
+function dirDiff(dir1, dir2) {
+  return checkDir(dir1 - dir2);
 }
 
 function spin(object, amount) {
@@ -395,10 +387,10 @@ function collide(a, b) {
     if (both[i].type !== types.PLANET) {
       if (both[i].type === types.SHIP && both[i===0?1:0].type !== types.PLANET) {
         if (both[i===0?1:0].type === types.LOOT) { continue; }
-        if (both[i].boost > 0 || both[i].shield > 0) {
-          if (both[i===0?1:0].type === types.SHIP && both[i===0?1:0].boost === 0 && both[i===0?1:0].shield === 0) {
+        if (both[i===0?1:0].type === types.SHIP && both[i===0?1:0].boost === 0 && both[i===0?1:0].shield === 0) {
             both[i].kills++;
           }
+        if (both[i].boost > 0 || both[i].shield > 0) {
           if (both[i].boost === 0 && both[i].shield > 0) { shield(both[i], true); }
           continue;
         }
@@ -450,7 +442,7 @@ function boost(object, dir) {
   object.yVel = 0;
   object.dVel = 0;
   let pivot = (dir === 'Up') ? object.dir : (dir === 'Left') ? object.dir-PI/2 : object.dir+PI/2;
-  if (Math.abs(pivot) > PI) { pivot-= Math.sign(pivot)*2*PI; }
+  pivot = checkDir(pivot);
   accelerate(object, boostSpeed, pivot);
   playSound(sounds.BOOST, object);
   object.boost = boostTime;
@@ -627,8 +619,7 @@ function calcGravity(a, b) {
     let direction = getDir(a, b);
     accelerate(b, gravity, direction);
     let velDir = getVelDir(b);
-    let diff = velDir - b.dir;
-    if (Math.abs(diff) > PI) { diff-= Math.sign(diff)*2*PI; }
+    let diff = dirDiff(velDir, b.dir);
     spin(b, diff*gravity*5/PI);
   }
 }
@@ -698,8 +689,7 @@ function lockTarget(a, b) {
       } else if (distance >= getDistance(a, a.target)*1.3) { return; }
     }
     let direction = getDir(b, a);
-    let diff = direction - a.dir;
-    if (Math.abs(diff) > PI) { diff-= Math.sign(diff)*2*PI; }
+    let diff = dirDiff(direction, a.dir);
     if (diff > PI/2) { return; }
   }
   a.target = b;
@@ -712,8 +702,7 @@ function trackTarget(object) {
   let direction = getDir(object.target, object);
   if (object.target.type === types.PLANET) { direction += PI; }
   let distance = getDistance(object, object.target);
-  let diff = direction - object.dir;
-  if (Math.abs(diff) > PI) { diff-= Math.sign(diff)*2*PI; }
+  let diff = dirDiff(direction, object.dir);
   spin(object, diff/(PI));
   let speed = moveSpeed*0.7;
   if (object.target.type === types.PLANET) { speed = moveSpeed; }
