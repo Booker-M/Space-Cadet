@@ -43,6 +43,7 @@ const sounds = { //https://freesound.org/people/ProjectsU012/packs/18837
 
 function setup() {
   createCanvas(windowWidth - 20, windowHeight - 20);
+  createCanvas(windowWidth - 20, (windowWidth - 20)*2/3);
   adjustSizes();
   noStroke();
   rectMode(CENTER);
@@ -51,7 +52,7 @@ function setup() {
 
 function reset() {
   startTime = new Date();
-  ship = {type: types.SHIP, xPos: 0, yPos: 0, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: 0.996, spinFriction: 0.97, maxSpeed: 10, maxRotation: 10, size: height/16, color: randomColor(), end: false, wait: {bullet: new Date(), missile: new Date(), boost: new Date()}, flame: {back: false, left: false, right: false}, kills: 0, boost: 0, shield: 0};
+  ship = {type: types.SHIP, xPos: 0, yPos: 0, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: 0.996, spinFriction: 0.97, maxSpeed: 10, maxRotation: 10, size: width/25, color: randomColor(), end: false, wait: {bullet: new Date(), missile: new Date(), boost: new Date()}, flame: {back: false, left: false, right: false}, kills: 0, boost: 0, shield: 0};
   objects = [ship];
   generateStars();
   gameStart = new Date();
@@ -140,7 +141,7 @@ function keys() {
     ship.flame.right = false;
     lastKey.right = false;
   }
-  if ((keyIsDown(32) || keyIsDown(85))) {
+  if ((keyIsDown(32) || keyIsDown(73))) {
     let thisKeyTime = new Date();
     if (thisKeyTime - lastKeyTime.bullet <= delta && !lastKey.bullet) {
       if (thisKeyTime - ship.wait.missile >= missileWait) { fireBullet(ship, true); }
@@ -235,7 +236,7 @@ function tutorial() {
   } else if (gap < hold*2) {
     writeText(255, 255, 255, Math.min(gap, hold*2 - gap), 'Press [↑] or [W] to accelerate and [←] [→] or [A] [D] to rotate');
   } else if (gap < hold*3) {
-    writeText(255, 255, 255, Math.min(gap, hold*3 - gap), 'Press [Space] or [U] to shoot');
+    writeText(255, 255, 255, Math.min(gap, hold*3 - gap), 'Press [Space] or [I] to shoot');
   } else if (gap < hold*4) {
     writeText(255, 255, 255, Math.min(gap, hold*4 - gap), 'Double-tap [↑] [←] [→] or [W] [A] [D] to boost');
   } else if (gap < hold*5) {
@@ -570,8 +571,8 @@ function generateStars() {
 }
 
 function drawStars() {
-  let size = 10;
-  fill(200);
+  let size = width/120;
+  fill(200, 200);
   let t = 10;
   for (let j = 0; j < t; j++) {
     for (let i = stars.length * j/t; i < stars.length * (j+1)/t; i++) {
@@ -628,12 +629,12 @@ function fireBullet(object, missile) {
   let speed = 13;
   object.wait.bullet = new Date();
   if (missile) {
-    let size = height/35;
+    let size = width/50;
     playSound(sounds.MISSILE, object);
     object.wait.missile = new Date();
     objects.push({type: types.BULLET, xPos: object.xPos + Math.cos(object.dir)*size*3, yPos: object.yPos + Math.sin(object.dir)*size*3, dir: object.dir, xVel: object.xVel + Math.cos(object.dir)*speed, yVel: object.yVel + Math.sin(object.dir)*speed, dVel: 0, friction: ship.friction, spinFriction: ship.spinFriction, maxSpeed: ship.maxSpeed, maxRotation: ship.maxRotation, size: size, color: 'red', end: false, missile: true, parent: object, target: null, flame: {back: false, left: false, right: false}});
   } else {
-    let size = height/70;
+    let size = width/100;
     playSound(sounds.SHOOT, object);
     objects.push({type: types.BULLET, xPos: object.xPos + Math.cos(object.dir)*size*4, yPos: object.yPos + Math.sin(object.dir)*size*4, dir: object.dir, xVel: object.xVel + Math.cos(object.dir)*speed, yVel: object.yVel + Math.sin(object.dir)*speed, dVel: 0, friction: 0.998, spinFriction: ship.spinFriction, maxSpeed: 40, maxRotation: 25, size: size, color: 'cyan', end: false, missile: false, parent: object});
   }
@@ -674,9 +675,10 @@ function genShip() {
 }
 
 function lockTarget(a, b) {
+  if (a.target != null && a.target === b) { return; }
   if ((a.type !== types.SHIP || a===ship) && (a.type !== types.BULLET || !a.missile || a.parent===b)) { return; }
   if (b.type !== types.SHIP && b.type !== types.LOOT && (b.type !== types.BULLET || !b.missile) && (b.type !== types.PLANET || a.type === types.BULLET)) { return; }
-  if (a.target != null && a.target === b) { return; }
+  if (b.parent != null && b.parent === a) { return; }
   let distance = getDistance(a, b);
   if (b.type === types.PLANET) {
     if (a.target != null && a.target.type === types.PLANET) {
@@ -706,7 +708,7 @@ function trackTarget(object) {
   spin(object, diff/(PI));
   let speed = moveSpeed*0.7;
   if (object.target.type === types.PLANET) { speed = moveSpeed; }
-  else {
+  else if (object.target.type === types.SHIP) {
     let speedDiff = Math.max(0, getSpeed(object.target) - getSpeed(object));
     if (distance < object.target.size*10 && object.type !== types.BULLET) { speed = Math.min(moveSpeed*0.2, speedDiff); }
   }
@@ -718,7 +720,7 @@ function trackTarget(object) {
     currentTime = new Date();
     if (distance < object.size*3) {
       if (currentTime - object.wait.boost >= boostWait*2.5) { boost(object, 'Up'); }
-    } else if (distance < height/2) {
+    } else if (distance < width/3) {
       if (currentTime - object.wait.missile >= missileWait*2.5) { fireBullet(object, true); }
       else if (currentTime - object.wait.bullet >= bulletWait*2 && currentTime - object.wait.missile >= missileWait*2*0.05) { fireBullet(object, false); }
     }
