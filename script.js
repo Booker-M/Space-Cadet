@@ -805,7 +805,7 @@ function genLoot() {
   let xOrY = parseInt(Math.random()+0.5);
   let x = Math.sign(Math.random()-0.5) * (Math.random()*bounds + (width + 30)*xOrY)/2 + ship.xPos;
   let y = Math.sign(Math.random()-0.5) * (Math.random()*bounds + (height + 30)*(1-xOrY))/2 + ship.yPos;
-  let newLoot = {type: types.LOOT, xPos: x, yPos: y, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: 0, spinFriction: 0, maxSpeed: 0, maxRotation: 0, size: 30, end: false};
+  let newLoot = {type: types.LOOT, xPos: x, yPos: y, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: 0, spinFriction: 0, maxSpeed: 0, maxRotation: 0, size: ship.size/2, end: false};
   for (let i = 0; i < objects.length; i++) {
     if (collision(newLoot, objects[i])) { return genLoot(); }
   }
