@@ -108,12 +108,12 @@ function keys() {
     ship.flame.back = false;
     lastKey.up = false;
   }
-  if (keyIsDown(DOWN_ARROW) || keyIsDown(83)) {
-    accelerate(ship, -0.1);
-    lastKey.down = true;
-  } else {
-    lastKey.down = false;
-  }
+  // if (keyIsDown(DOWN_ARROW) || keyIsDown(83)) {
+  //   accelerate(ship, -0.1);
+  //   lastKey.down = true;
+  // } else {
+  //   lastKey.down = false;
+  // }
   if (keyIsDown(LEFT_ARROW) || keyIsDown(65)) {
     let thisKeyTime = new Date();
     if (thisKeyTime - lastKeyTime.left <= delta && !lastKey.left) {
@@ -690,7 +690,7 @@ function lockTarget(a, b) {
   if (b.type === types.PLANET) {
     if (a.target != null && a.target.type === types.PLANET) {
       if (distance >= getDistance(a, a.target)) { return; }
-    } else if (distance > b.size) { return; }
+    } else if (distance > a.size*6) { return; }
   } else {
     if (a.target != null) {
       if (a.target.type === types.PLANET) {
