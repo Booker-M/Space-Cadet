@@ -683,18 +683,26 @@ function genShip() {
 }
 
 function lockTarget(a, b) {
-  if (((a.type !== types.SHIP || a === ship) && (a.type !== types.BULLET || !a.missile || a.parent === b)) || (b.type !== types.SHIP && b.type !== types.LOOT && (b.type !== types.BULLET || !b.missile) && (a.type === types.SHIP || b.type !== types.PLANET))) { return; }
-  if (a.target != null) {
-    if (a.target === b) { return; }
-    let distance = getDistance(a, b);
-    if (b.type === types.PLANET) {
-      if (distance >= getDistance(a, a.target)*0.8) { return; }
-    } else if (distance >= getDistance(a, a.target)*1.3) { return; }
+  if ((a.type !== types.SHIP || a===ship) && (a.type !== types.BULLET || !a.missile || a.parent===b)) { return; }
+  if (b.type !== types.SHIP && b.type !== types.LOOT && (b.type !== types.BULLET || !b.missile) && (b.type !== types.PLANET || a.type === types.BULLET)) { return; }
+  if (a.target != null && a.target === b) { return; }
+  let distance = getDistance(a, b);
+  if (b.type === types.PLANET) {
+    if (a.target != null && a.target.type === types.PLANET) {
+      if (distance >= getDistance(a, a.target)) { return; }
+    } else if (distance > b.size) { return; }
+  } else {
+    if (a.target != null) {
+      if (a.target.type === types.PLANET) {
+        if (getDistance(a, a.target) < a.target.size) { return; }
+      } else if (distance >= getDistance(a, a.target)*1.3) { return; }
+    }
+    let direction = getDir(b, a);
+    let diff = direction - a.dir;
+    if (Math.abs(diff) > PI) { diff-= Math.sign(diff)*2*PI; }
+    if (diff > PI/2) { return; }
   }
-  let direction = getDir(b, a);
-  let diff = direction - a.dir;
-  if (Math.abs(diff) > PI) { diff-= Math.sign(diff)*2*PI; }
-  if (diff < PI/2) { a.target = b; }
+  a.target = b;
   // a.target = ship;
 }
 
@@ -708,11 +716,10 @@ function trackTarget(object) {
   if (Math.abs(diff) > PI) { diff-= Math.sign(diff)*2*PI; }
   spin(object, diff/(PI));
   let speed = moveSpeed*0.7;
-  if (object.target.type === types.PLANET) {
-    if (distance < object.target.size*2) { let speed = moveSpeed; }
-  } else {
+  if (object.target.type === types.PLANET) { speed = moveSpeed; }
+  else {
     let speedDiff = Math.max(0, getSpeed(object.target) - getSpeed(object));
-    if (distance < object.target.size*10 && !object.type === types.BULLET) { let speed = Math.min(moveSpeed*0.2, speedDiff); }
+    if (distance < object.target.size*10 && object.type !== types.BULLET) { speed = Math.min(moveSpeed*0.2, speedDiff); }
   }
   accelerate(object, speed, direction);
   object.flame.back = true;
@@ -723,8 +730,8 @@ function trackTarget(object) {
     if (distance < object.size*3) {
       if (currentTime - object.wait.boost >= boostWait*2.5) { boost(object, 'Up'); }
     } else if (distance < height/2) {
-      // if (currentTime - object.wait.missile >= missileWait*2.5) { fireBullet(object, true); }
-      // else if (currentTime - object.wait.bullet >= bulletWait*2 && currentTime - object.wait.missile >= missileWait*2*0.05) { fireBullet(object, false); }
+      if (currentTime - object.wait.missile >= missileWait*2.5) { fireBullet(object, true); }
+      else if (currentTime - object.wait.bullet >= bulletWait*2 && currentTime - object.wait.missile >= missileWait*2*0.05) { fireBullet(object, false); }
     }
   }
 }
