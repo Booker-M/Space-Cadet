@@ -754,8 +754,8 @@ function genDebris(object) {
   let dir = Math.random()*2*PI - PI,
       x = object.xPos + size*cos(dir)/2,
       y = object.yPos + size*sin(dir)/2,
-      xVel = object.xVel + 4*cos(dir),
-      yVel = object.yVel + 4*sin(dir),
+      xVel = object.xVel + (Math.random()+1)*2*cos(dir),
+      yVel = object.yVel + (Math.random()+1)*2*sin(dir),
       dVel = Math.random()*10 - 5;
   let color = parseInt(Math.random() + 0.5) === 0 ? object.color : 200;
   let shape = parseInt(Math.random() + 0.5) === 0 ? 'Triangle' : 'Rectangle';
