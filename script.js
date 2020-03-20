@@ -649,7 +649,7 @@ function fireBullet(object, missile) {
   } else {
     let size = width/130;
     playSound(sounds.SHOOT, object);
-    objects.push({type: types.BULLET, xPos: object.xPos + Math.cos(object.dir)*(object.size + size), yPos: object.yPos + Math.sin(object.dir)*(object.size + size), dir: object.dir, xVel: object.xVel + Math.cos(object.dir)*speed, yVel: object.yVel + Math.sin(object.dir)*speed, dVel: 0, friction: 0.998, spinFriction: ship.spinFriction, maxSpeed: 40, maxRotation: 25, size: size, color: 'cyan', end: false, missile: false, parent: object});
+    objects.push({type: types.BULLET, xPos: object.xPos + Math.cos(object.dir)*(object.size + size), yPos: object.yPos + Math.sin(object.dir)*(object.size + size), dir: object.dir, xVel: object.xVel + Math.cos(object.dir)*speed, yVel: object.yVel + Math.sin(object.dir)*speed, dVel: 0, friction: 0.998, spinFriction: ship.spinFriction, maxSpeed: 40, maxRotation: 25, size: size, color: [0, 255, 255, 245], end: false, missile: false, parent: object});
   }
 }
 
