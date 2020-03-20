@@ -435,9 +435,7 @@ function collide(a, b) {
 }
 
 function endObject(i) {
-  if (objects[i].type === types.SHIP || (objects[i].type === types.BULLET && objects[i].missile)) {
-    genExplosion(objects[i]);
-  }
+  if (objects[i].type === types.SHIP || (objects[i].type === types.BULLET && objects[i].missile)) { genExplosion(objects[i]); }
   if (objects[i].type === types.SHIP) {
     for (let j = 0; j < 10; j++) { genDebris(objects[i]); }
     if (objects[i] === ship) {
@@ -447,7 +445,7 @@ function endObject(i) {
     else { objects[i] = genShip(); }
   }
   else if (objects[i].type === types.LOOT) { objects[i] = genLoot(); }
-  else if (objects[i].type === types.PLANET) { objects[i] = genPlanet(); } 
+  else if (objects[i].type === types.PLANET) { objects[i] = genPlanet(); }
   else { return removeObject(i); }
   return false;
 }
@@ -690,13 +688,13 @@ function genShip() {
 }
 
 function lockTarget(a, b) {
-  if ((a.type !== types.SHIP || a===ship) && (a.type !== types.BULLET || !a.missile || a.parent===b)) { return; }
-  if (a.target != null && a.target === ship && ship.dead) {a.target = null; }
-  if (a.target != null && getDistance(a, a.target) > width) {a.target = null; }
-  if (a.target != null && a.target === b) { return; }
+  if ((a.type !== types.SHIP || a===ship) && (a.type !== types.BULLET || !a.missile || a.parent===b) || (b.parent != null && b.parent === a)) { return; }
+  if (a.target != null) {
+    if (a.target === ship && ship.dead || a.target.end || getDistance(a, a.target) > width) {a.target = null; }
+    if (a.target === b) { return; }
+  }
   let distance = getDistance(a, b);
   if (distance > width || b.type !== types.SHIP && b.type !== types.LOOT && (b.type !== types.BULLET || !b.missile) && (b.type !== types.PLANET || a.type === types.BULLET)) { return; }
-  if (b.parent != null && b.parent === a) { return; }
   if (b.type === types.PLANET) {
     if (a.target != null && a.target.type === types.PLANET) {
       if (distance >= getDistance(a, a.target)) { return; }
