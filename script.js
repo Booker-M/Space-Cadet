@@ -229,7 +229,7 @@ function tutorial() {
   } else if (gap < hold*4) {
     writeText(255, 255, 255, Math.min(gap, hold*4 - gap), 'Double-tap [↑] [←] [→] or [W] [A] [D] to boost');
   } else if (gap < hold*5) {
-    writeText(255, 255, 255, Math.min(gap, hold*5 - gap), 'Double-tap [Space] or [U] to fire a missile');
+    writeText(255, 255, 255, Math.min(gap, hold*5 - gap), 'Double-tap [Space] or [I] to fire a missile');
   } else if (gap < hold*6) {
     writeText(255, 255, 255, Math.min(gap, hold*6 - gap), 'Defeat enemies, collect shields, and avoid planets');
   } else {
