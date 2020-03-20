@@ -320,10 +320,6 @@ function checkDir(dir) {
   return dir;
 }
 
-function dirDiff(dir1, dir2) {
-  return checkDir(dir1 - dir2);
-}
-
 function spin(object, amount) {
   if (typeof(object.explosion) !== 'undefined') { return; }
   object.dVel += amount;
@@ -349,15 +345,37 @@ function getSpeed(a, b) {
 }
 
 function getDir(a, b) {
-  return Math.atan2(a.yPos - b.yPos, a.xPos - b.xPos);
+  return Math.atan2(b.yPos - a.yPos, b.xPos - a.xPos);
 }
 
 function getVelDir(a) {
   return Math.atan2(a.yVel, a.xVel);
 }
 
+function dirDiff(dir1, dir2) {
+  return checkDir(dir1 - dir2);
+}
+
 function collision(a, b) {
   return getDistance(a, b) <= 0;
+}
+
+function inFront(a, b) {
+  let direction = getDir(a, b);
+  let diff = dirDiff(direction, a.dir);
+  return (Math.abs(diff) < PI/2);
+}
+
+function directFront(a, b) {
+  let direction = getDir(a, b);
+  let diff = dirDiff(direction, a.dir);
+  return (Math.abs(diff) < PI/2);
+}
+
+function onRight(a, b) {
+  let direction = getDir(a, b);
+  let diff = dirDiff(direction, a.dir);
+  return (diff > 0);
 }
 
 function fix(i) {
@@ -550,7 +568,7 @@ function getArrow(object) {
   if (a.yPos > height/2 - 20 + ship.yPos) { a.yPos = height - 20; }
   else if (a.yPos < -height/2 + 20 + ship.yPos) { a.yPos = 20; }
   else { a.yPos += -ship.yPos + height/2; }
-  a.dir = getDir(ship, object);
+  a.dir = getDir(object, ship);
   return a;
 }
 
@@ -573,10 +591,10 @@ function drawStars() {
   let t = 10;
   for (let j = 0; j < t; j++) {
     for (let i = stars.length * j/t; i < stars.length * (j+1)/t; i++) {
-      if (stars[i].xPos > width + ship.xPos/j + 2.5) { stars[i].xPos = ship.xPos/j}
-      if (stars[i].xPos < ship.xPos/j - 2.5) { stars[i].xPos = ship.xPos/j + width}
-      if (stars[i].yPos > height + ship.yPos/j + 2.5) { stars[i].yPos = ship.yPos/j}
-      if (stars[i].yPos < ship.yPos/j - 2.5) { stars[i].yPos = ship.yPos/j + height}
+      if (stars[i].xPos > width + ship.xPos/j + size/2) { stars[i].xPos = ship.xPos/j}
+      if (stars[i].xPos < ship.xPos/j - size/2) { stars[i].xPos = ship.xPos/j + width}
+      if (stars[i].yPos > height + ship.yPos/j +size/2) { stars[i].yPos = ship.yPos/j}
+      if (stars[i].yPos < ship.yPos/j - size/2) { stars[i].yPos = ship.yPos/j + height}
       ellipse(stars[i].xPos - ship.xPos/j, stars[i].yPos - ship.yPos/j, size/2, size/2);
     }
   }
@@ -614,11 +632,11 @@ function calcGravity(a, b) {
   let distance = getDistance(a, b);
   if (distance < a.size*3) {
     let gravity = (a.size/7)/(distance + a.size);
-    let direction = getDir(a, b);
+    let direction = getDir(b, a);
     accelerate(b, gravity, direction);
     let velDir = getVelDir(b);
     let diff = dirDiff(velDir, b.dir);
-    spin(b, diff*gravity*5/PI);
+    spin(b, diff*gravity*4.5/PI);
   }
 }
 
@@ -672,12 +690,13 @@ function genShip() {
 }
 
 function lockTarget(a, b) {
-  if (a.target !== null && a.target === ship && ship.dead) {a.target = null; }
-  if (a.target != null && a.target === b) { return; }
   if ((a.type !== types.SHIP || a===ship) && (a.type !== types.BULLET || !a.missile || a.parent===b)) { return; }
-  if (b.type !== types.SHIP && b.type !== types.LOOT && (b.type !== types.BULLET || !b.missile) && (b.type !== types.PLANET || a.type === types.BULLET)) { return; }
-  if (b.parent != null && b.parent === a) { return; }
+  if (a.target !== null && a.target === ship && ship.dead) {a.target = null; }
+  if (a.target !== null && getDistance(a, a.target) > width) {a.target = null; }
+  if (a.target != null && a.target === b) { return; }
   let distance = getDistance(a, b);
+  if (distance > width || b.type !== types.SHIP && b.type !== types.LOOT && (b.type !== types.BULLET || !b.missile) && (b.type !== types.PLANET || a.type === types.BULLET)) { return; }
+  if (b.parent != null && b.parent === a) { return; }
   if (b.type === types.PLANET) {
     if (a.target != null && a.target.type === types.PLANET) {
       if (distance >= getDistance(a, a.target)) { return; }
@@ -688,18 +707,15 @@ function lockTarget(a, b) {
         if (getDistance(a, a.target) < a.target.size) { return; }
       } else if (distance >= getDistance(a, a.target)*1.3) { return; }
     }
-    let direction = getDir(b, a);
-    let diff = dirDiff(direction, a.dir);
-    if (diff > PI/2) { return; }
+    if (!inFront(a, b)) { return; }
   }
   a.target = b;
-  // a.target = ship;
 }
 
 function trackTarget(object) {
   if (((object.type !== types.SHIP || object === ship) && (object.type !== types.BULLET || !object.missile)) || object.target == null) { return; }
   object.flame = {back: false, left: false, right: false};
-  let direction = getDir(object.target, object);
+  let direction = getDir(object, object.target);
   if (object.target.type === types.PLANET) { direction += PI; }
   let distance = getDistance(object, object.target);
   let diff = dirDiff(direction, object.dir);
@@ -716,8 +732,8 @@ function trackTarget(object) {
     diff > 0 ? object.flame.right = true : object.flame.left = true;
     if (object.target.type === types.PLANET) { return; }
     currentTime = new Date();
-    if (distance < object.size*3) {
-      if (currentTime - object.wait.boost >= boostWait*2.5) { boost(object, 'Up'); }
+    if (distance < object.size*3 && inFront(object, object.target)) {
+      if (currentTime - object.wait.boost >= boostWait*2.5) { boost(object, directFront(object, object.target) ? 'Up' : onRight(object, object.target) ? 'Right' : 'Left'); }
     } else if (distance < width/3) {
       if (currentTime - object.wait.missile >= missileWait*2.5) { fireBullet(object, true); }
       else if (currentTime - object.wait.bullet >= bulletWait*2 && currentTime - object.wait.missile >= missileWait*2*0.05) { fireBullet(object, false); }
