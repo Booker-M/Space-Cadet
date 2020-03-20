@@ -501,7 +501,7 @@ function drawFlames(object) {
   resetMatrix();
   translate(object.xPos - ship.xPos + width/2, object.yPos - ship.yPos + height/2);
   rotate(object.dir);
-  fill(255, 0, 0, 200);
+  fill(255, 0, 0, 200-flameSize);
   let size = object.size;
   let time = new Date();
   if (object.flame.back) {
@@ -530,7 +530,7 @@ function drawBoost(object) {
   resetMatrix();
   translate(object.xPos - ship.xPos + width/2, object.yPos - ship.yPos + height/2);
   rotate(getVelDir(object));
-  fill(0, 160, 255, 100);
+  fill(0, 160, 255, 110-flameSize);
   let size = object.size;
   ellipse(-10, 0, flameSize + size*2.3, flameSize + size*1.3);
   if (flameSize === 10 || flameSize === 7.5 || flameSize === 5) {
@@ -543,7 +543,7 @@ function drawShield(object) {
   resetMatrix();
   translate(object.xPos - ship.xPos + width/2, object.yPos - ship.yPos + height/2);
   rotate(object.dir);
-  fill(255, 0, 255, 50);
+  fill(255, 0, 255, 60-flameSize);
   let size = object.size;
   ellipse(-3, 0, flameSize + size*1.7, flameSize + size*1.3);
 }
