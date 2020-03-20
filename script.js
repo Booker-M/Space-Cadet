@@ -689,10 +689,7 @@ function genShip() {
 
 function lockTarget(a, b) {
   if ((a.type !== types.SHIP || a===ship) && (a.type !== types.BULLET || !a.missile || a.parent===b) || (b.parent != null && b.parent === a)) { return; }
-  if (a.target != null) {
-    if (a.target === ship && ship.dead || a.target.end || getDistance(a, a.target) > width) {a.target = null; }
-    if (a.target === b) { return; }
-  }
+  if (a.target != null && ((a.target === ship && ship.dead) || a.target.end || getDistance(a, a.target) > width)) { a.target = null; }
   let distance = getDistance(a, b);
   if (distance > width || b.type !== types.SHIP && b.type !== types.LOOT && (b.type !== types.BULLET || !b.missile) && (b.type !== types.PLANET || a.type === types.BULLET)) { return; }
   if (b.type === types.PLANET) {
@@ -700,7 +697,17 @@ function lockTarget(a, b) {
       if (distance >= getDistance(a, a.target)) { return; }
     } else if (distance > a.size*6) { return; }
   } else {
+    if (a.type === types.SHIP && inFront(a, b)) {
+      currentTime = new Date();
+      if (distance < a.size*3) {
+        if (currentTime - a.wait.boost >= boostWait*2.5) { boost(a, directFront(a, b) ? 'Up' : onRight(a, b) ? 'Right' : 'Left'); }
+      } else if (distance < width/2) {
+        if (currentTime - a.wait.missile >= missileWait*2.5) { fireBullet(a, true); }
+        else if (currentTime - a.wait.bullet >= bulletWait*2 && currentTime - a.wait.missile >= missileWait*2*0.1) { fireBullet(a, false); }
+      }
+    }
     if (a.target != null) {
+      if (a.target === b) { return; }
       if (a.target.type === types.PLANET) {
         if (getDistance(a, a.target) < a.target.size) { return; }
       } else if (distance >= getDistance(a, a.target)*1.3) { return; }
@@ -733,15 +740,6 @@ function trackTarget(object) {
   if (object.type === types.SHIP) {
     diff > 0 ? object.flame.right = true : object.flame.left = true;
     if (object.target.type === types.PLANET) { return; }
-    currentTime = new Date();
-    if (inFront(object, object.target)) {
-      if (distance < object.size*3) {
-        if (currentTime - object.wait.boost >= boostWait*2.5) { boost(object, directFront(object, object.target) ? 'Up' : onRight(object, object.target) ? 'Right' : 'Left'); }
-      } else if (distance < width/3) {
-        if (currentTime - object.wait.missile >= missileWait*2.5) { fireBullet(object, true); }
-        else if (currentTime - object.wait.bullet >= bulletWait*2 && currentTime - object.wait.missile >= missileWait*2*0.05) { fireBullet(object, false); }
-      }
-    }
   }
 }
 
