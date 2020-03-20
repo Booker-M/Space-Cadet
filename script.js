@@ -431,7 +431,7 @@ function endObject(i) {
     genExplosion(objects[i]);
   }
   if (objects[i].type === types.SHIP) {
-    for (let j = 0; j < 4; j++) { genDebris(objects[i]); }
+    for (let j = 0; j < 7; j++) { genDebris(objects[i]); }
     if (objects[i] === ship) { ship.dead = true; }
     else { objects[i] = genShip(); }
   }
@@ -633,12 +633,12 @@ function fireBullet(object, missile) {
   let speed = 13;
   object.wait.bullet = new Date();
   if (missile) {
-    let size = width/50;
+    let size = width/60;
     playSound(sounds.MISSILE, object);
     object.wait.missile = new Date();
     objects.push({type: types.BULLET, xPos: object.xPos + Math.cos(object.dir)*size*3, yPos: object.yPos + Math.sin(object.dir)*size*3, dir: object.dir, xVel: object.xVel + Math.cos(object.dir)*speed, yVel: object.yVel + Math.sin(object.dir)*speed, dVel: 0, friction: ship.friction, spinFriction: ship.spinFriction, maxSpeed: ship.maxSpeed, maxRotation: ship.maxRotation, size: size, color: 'red', end: false, missile: true, parent: object, target: null, flame: {back: false, left: false, right: false}});
   } else {
-    let size = width/100;
+    let size = width/130;
     playSound(sounds.SHOOT, object);
     objects.push({type: types.BULLET, xPos: object.xPos + Math.cos(object.dir)*size*4, yPos: object.yPos + Math.sin(object.dir)*size*4, dir: object.dir, xVel: object.xVel + Math.cos(object.dir)*speed, yVel: object.yVel + Math.sin(object.dir)*speed, dVel: 0, friction: 0.998, spinFriction: ship.spinFriction, maxSpeed: 40, maxRotation: 25, size: size, color: 'cyan', end: false, missile: false, parent: object});
   }
