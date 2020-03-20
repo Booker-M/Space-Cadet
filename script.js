@@ -609,8 +609,8 @@ function generatePlanets() {
 function genPlanet() {
   let xOrY = parseInt(Math.random()+0.5);
   let size = Math.random() * (maxPlanetSize-minPlanetSize) + minPlanetSize;
-  let x = Math.sign(Math.random()-0.5) * (Math.random()*bounds + (width + size)*xOrY)/2 + ship.xPos;
-  let y = Math.sign(Math.random()-0.5) * (Math.random()*bounds + (height + size)*(1-xOrY))/2 + ship.yPos;
+  let x = Math.sign(Math.random()-0.5) * (Math.random()*bounds + (width + size*7)*xOrY)/2 + ship.xPos;
+  let y = Math.sign(Math.random()-0.5) * (Math.random()*bounds + (height + size*7)*(1-xOrY))/2 + ship.yPos;
   let newPlanet = {type: types.PLANET, xPos: x, yPos: y, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: 0, spinFriction: 0, maxSpeed: 0, maxRotation: 0, size: size, color: randomColor(), end: false};
   for (let i = 0; i < objects.length; i++) {
     if (collision(newPlanet, objects[i])) { return genPlanet(); }
@@ -691,8 +691,8 @@ function genShip() {
 
 function lockTarget(a, b) {
   if ((a.type !== types.SHIP || a===ship) && (a.type !== types.BULLET || !a.missile || a.parent===b)) { return; }
-  if (a.target !== null && a.target === ship && ship.dead) {a.target = null; }
-  if (a.target !== null && getDistance(a, a.target) > width) {a.target = null; }
+  if (a.target != null && a.target === ship && ship.dead) {a.target = null; }
+  if (a.target != null && getDistance(a, a.target) > width) {a.target = null; }
   if (a.target != null && a.target === b) { return; }
   let distance = getDistance(a, b);
   if (distance > width || b.type !== types.SHIP && b.type !== types.LOOT && (b.type !== types.BULLET || !b.missile) && (b.type !== types.PLANET || a.type === types.BULLET)) { return; }
@@ -713,7 +713,11 @@ function lockTarget(a, b) {
 }
 
 function trackTarget(object) {
-  if (((object.type !== types.SHIP || object === ship) && (object.type !== types.BULLET || !object.missile)) || object.target == null) { return; }
+  if ((object.type !== types.SHIP || object === ship) && (object.type !== types.BULLET || !object.missile)) { return; }
+  if (object.target == null) {
+    accelerate(object, moveSpeed*0.7, object.dir);
+    return;
+  }
   object.flame = {back: false, left: false, right: false};
   let direction = getDir(object, object.target);
   if (object.target.type === types.PLANET) { direction += PI; }
