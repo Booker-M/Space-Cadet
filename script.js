@@ -1,35 +1,25 @@
 let newGame = true;
-let gameStart;
+let gameStart, deathTime;
 
 const types = { SHIP: 'Ship', PLANET: 'Planet', BULLET: 'Bullet', DEBRIS: 'Debris', LOOT: 'Loot', Effect: 'Effect'};
 const effects = { BLUR: 'Blur', SMOKE: 'Smoke', EXPLOSION: 'Explosion'};
 let ship = {};
-const moveSpeed = 0.25,
-      rotateSpeed = 0.4,
-      boostSpeed = 10;
-const totalStars = 200,
-      totalShips = 6,
-      totalPlanets = 6,
-      totalLoot = 3;
+const moveSpeed = 0.25, rotateSpeed = 0.4, boostSpeed = 10;
+const totalStars = 200, totalShips = 6, totalPlanets = 6, totalLoot = 3;
 let bounds;
-let maxPlanetSize,
-    minPlanetSize;
+let maxPlanetSize, minPlanetSize;
 let flameSize = 5;
 let flameGrow = true;
 let stars = [];
 let objects = [];
-let boostTime = 50,
-    shieldTime = 2500;
-let bulletWait = 250,
-    missileWait = 250*15,
-    boostWait = 250*15;
+let boostTime = 50, shieldTime = 2500;
+let bulletWait = 250, missileWait = 250*15, boostWait = 250*15;
 
 let lastKey = {up: false, down: false, left: false, right: false, bullet: false};
 let lastKeyTime = {up: 0, down: 0, left: 0, right: 0, bullet: 0};
 let delta = 150;
 
-var startTime,
-    elapsedTime = Number.MAX_SAFE_INTEGER;
+let startTime, elapsedTime = Number.MAX_SAFE_INTEGER;
 let trackLength = 0.0;
 const music = [
   new Audio('http://soundimage.org/wp-content/uploads/2016/11/Automation.mp3')
@@ -93,7 +83,7 @@ function draw() {
 
 function keys() {
   if (ship.dead) {
-    if(keyIsDown(keyCode)) { reset(); }
+    if(keyIsDown(keyCode) && new Date() - deathTime > 500) { reset(); }
     return;
   }
   if (keyIsDown(UP_ARROW) || keyIsDown(87)) {
@@ -222,7 +212,7 @@ function drawUI() {
   textSize(32);
   text(ship.kills, width - 50 - (ship.kills > 9 ? parseInt(ship.kills/10).toString().length*16 : 0), 40);
   
-  if (ship.dead) { writeText(255, 255, 255, 255, 'You died. Your score is ' + ship.kills + '. Press any key to restart.'); }
+  if (ship.dead) { writeText(255, 255, 255, Math.min(new Date()-deathTime, 255), 'You died. Your score is ' + ship.kills + '. Press any key to restart.'); }
   else if (newGame) { tutorial(); }
 }
 
@@ -431,8 +421,11 @@ function endObject(i) {
     genExplosion(objects[i]);
   }
   if (objects[i].type === types.SHIP) {
-    for (let j = 0; j < 7; j++) { genDebris(objects[i]); }
-    if (objects[i] === ship) { ship.dead = true; }
+    for (let j = 0; j < 10; j++) { genDebris(objects[i]); }
+    if (objects[i] === ship) {
+      ship.dead = true;
+      deathTime = new Date();
+    }
     else { objects[i] = genShip(); }
   }
   else if (objects[i].type === types.LOOT) { objects[i] = genLoot(); }
