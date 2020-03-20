@@ -672,6 +672,7 @@ function genShip() {
 }
 
 function lockTarget(a, b) {
+  if (a.target !== null && a.target === ship && ship.dead) {a.target = null; }
   if (a.target != null && a.target === b) { return; }
   if ((a.type !== types.SHIP || a===ship) && (a.type !== types.BULLET || !a.missile || a.parent===b)) { return; }
   if (b.type !== types.SHIP && b.type !== types.LOOT && (b.type !== types.BULLET || !b.missile) && (b.type !== types.PLANET || a.type === types.BULLET)) { return; }
