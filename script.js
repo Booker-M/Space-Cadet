@@ -42,12 +42,9 @@ const sounds = { //https://freesound.org/people/ProjectsU012/packs/18837
 };
 
 function setup() {
-  createCanvas(windowWidth - 20, windowHeight - 20);
-  createCanvas(windowWidth - 20, (windowWidth - 20)*2/3);
-  adjustSizes();
   noStroke();
   rectMode(CENTER);
-  reset();
+  windowResized();
 }
 
 function reset() {
@@ -66,14 +63,15 @@ function generation() {
 }
 
 function windowResized() {
-  resizeCanvas(windowWidth - 20, windowHeight - 20);
+  resizeCanvas(Math.max(windowWidth - 20, 480), Math.max(windowHeight - 20, 320));
   adjustSizes();
+  reset();
 }
 
 function adjustSizes() {
   bounds = 480*10 + width;
-  maxPlanetSize = height;
-  minPlanetSize = height/4;
+  maxPlanetSize = width;
+  minPlanetSize = width/4;
 }
 
 function playSound(sound, object) {
