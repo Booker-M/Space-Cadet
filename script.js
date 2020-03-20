@@ -231,7 +231,7 @@ function tutorial() {
   } else if (gap < hold*5) {
     writeText(255, 255, 255, Math.min(gap, hold*5 - gap), 'Double-tap [Space] or [U] to fire a missile');
   } else if (gap < hold*6) {
-    writeText(255, 255, 255, Math.min(gap, hold*6 - gap), 'Defeat enemy ships and avoid crashing into planets');
+    writeText(255, 255, 255, Math.min(gap, hold*6 - gap), 'Defeat enemies, collect shields, and avoid planets');
   } else {
     newGame = false;
     generation();
@@ -718,7 +718,7 @@ function trackTarget(object) {
   }
   object.flame = {back: false, left: false, right: false};
   let direction = getDir(object, object.target);
-  if (object.target.type === types.PLANET) { direction += directFront(object, object.target) ? PI : onRight(object, object.target) ? -PI/2 : PI/2; }
+  if (object.target.type === types.PLANET || (object.type === types.SHIP && object.target.type === types.BULLET)) { direction += !inFront(object, object.target) ? 0 : directFront(object, object.target) ? PI : onRight(object, object.target) ? -PI/2 : PI/2; }
   let distance = getDistance(object, object.target);
   let diff = dirDiff(direction, object.dir);
   spin(object, diff/(PI));
@@ -734,11 +734,13 @@ function trackTarget(object) {
     diff > 0 ? object.flame.right = true : object.flame.left = true;
     if (object.target.type === types.PLANET) { return; }
     currentTime = new Date();
-    if (distance < object.size*3 && inFront(object, object.target)) {
-      if (currentTime - object.wait.boost >= boostWait*2.5) { boost(object, directFront(object, object.target) ? 'Up' : onRight(object, object.target) ? 'Right' : 'Left'); }
-    } else if (distance < width/3) {
-      if (currentTime - object.wait.missile >= missileWait*2.5) { fireBullet(object, true); }
-      else if (currentTime - object.wait.bullet >= bulletWait*2 && currentTime - object.wait.missile >= missileWait*2*0.05) { fireBullet(object, false); }
+    if (inFront(object, object.target)) {
+      if (distance < object.size*3) {
+        if (currentTime - object.wait.boost >= boostWait*2.5) { boost(object, directFront(object, object.target) ? 'Up' : onRight(object, object.target) ? 'Right' : 'Left'); }
+      } else if (distance < width/3) {
+        if (currentTime - object.wait.missile >= missileWait*2.5) { fireBullet(object, true); }
+        else if (currentTime - object.wait.bullet >= bulletWait*2 && currentTime - object.wait.missile >= missileWait*2*0.05) { fireBullet(object, false); }
+      }
     }
   }
 }
