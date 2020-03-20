@@ -369,7 +369,7 @@ function inFront(a, b) {
 function directFront(a, b) {
   let direction = getDir(a, b);
   let diff = dirDiff(direction, a.dir);
-  return (Math.abs(diff) < PI/2);
+  return (Math.abs(diff) < PI/5);
 }
 
 function onRight(a, b) {
