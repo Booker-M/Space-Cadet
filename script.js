@@ -720,7 +720,7 @@ function trackTarget(object) {
   }
   object.flame = {back: false, left: false, right: false};
   let direction = getDir(object, object.target);
-  if (object.target.type === types.PLANET) { direction += PI; }
+  if (object.target.type === types.PLANET) { direction += directFront(object, object.target) ? PI : onRight(object, object.target) ? -PI/2 : PI/2; }
   let distance = getDistance(object, object.target);
   let diff = dirDiff(direction, object.dir);
   spin(object, diff/(PI));
