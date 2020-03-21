@@ -6,7 +6,7 @@ const effects = { BLUR: 'Blur', SMOKE: 'Smoke', EXPLOSION: 'Explosion'};
 const planetStyles = ['Crater', 'Water', 'Gas'];
 let ship = {};
 let moveSpeed = 0.25, rotateSpeed = 0.3, boostSpeed = 10, friction = 0.996, spinFriction = 0.97, bulletSpeed = 13, gravConstant = 1/7, maxSpeed = 10, maxRotation = 10, multiplier;
-const totalStars = 200, totalShips = 0, totalPlanets = 6, totalLoot = 3; //6 ships
+const totalStars = 200, totalShips = 6, totalPlanets = 6, totalLoot = 3; //6 ships
 let bounds;
 let maxPlanetSize, minPlanetSize, shadeAngle;
 let flameSize = 5, flameGrow = true;
