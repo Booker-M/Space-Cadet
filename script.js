@@ -5,8 +5,8 @@ const types = { SHIP: 'Ship', PLANET: 'Planet', BULLET: 'Bullet', DEBRIS: 'Debri
 const effects = { BLUR: 'Blur', SMOKE: 'Smoke', EXPLOSION: 'Explosion'};
 const planetStyles = ['Crater', 'Water', 'Gas'];
 let ship = {};
-const moveSpeed = 0.25, rotateSpeed = 0.4, boostSpeed = 10;
-const totalStars = 200, totalShips = 6, totalPlanets = 6, totalLoot = 3; //6 ships
+let moveSpeed = 0.25, rotateSpeed = 0.3, boostSpeed = 10, friction = 0.996, spinFriction = 0.97, bulletSpeed = 13, gravConstant = 1/7, maxSpeed = 10, maxRotation = 10, multiplier;
+const totalStars = 200, totalShips = 0, totalPlanets = 6, totalLoot = 3; //6 ships
 let bounds;
 let maxPlanetSize, minPlanetSize, shadeAngle;
 let flameSize = 5, flameGrow = true;
@@ -39,7 +39,7 @@ function setup() {
 
 function reset() {
   startTime = new Date();
-  ship = {type: types.SHIP, xPos: 0, yPos: 0, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: 0.996, spinFriction: 0.97, maxSpeed: 10, maxRotation: 10, size: width/25, color: randomColor(), end: false, wait: {bullet: new Date(), missile: new Date(), boost: new Date()}, flame: {back: false, left: false, right: false}, kills: 0, boost: 0, shield: 0, dead: false};
+  ship = {type: types.SHIP, xPos: 0, yPos: 0, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: friction, spinFriction: spinFriction, maxSpeed: maxSpeed, maxRotation: maxRotation, size: width/30, color: randomColor(), end: false, wait: {bullet: new Date(), missile: new Date(), boost: new Date()}, flame: {back: false, left: false, right: false}, kills: 0, boost: 0, shield: 0, dead: false};
   objects = [ship];
   generateStars();
   gameStart = new Date();
@@ -55,14 +55,15 @@ function generation() {
 
 function windowResized() {
   resizeCanvas(Math.max(windowWidth - 20, 480), Math.max(windowHeight - 20, 320));
-  adjustSizes();
+  adjustSize();
   reset();
 }
 
-function adjustSizes() {
+function adjustSize() {
   bounds = 480*10 + width;
   maxPlanetSize = width;
   minPlanetSize = width/4;
+  multiplier = width/960;
 }
 
 function playSound(sound, object) {
@@ -278,8 +279,8 @@ function move(object) {
   object.yVel = object.yVel * object.friction;
   object.dir += radians(object.dVel);
   object.dir = checkDir(object.dir);
-  object.xPos += object.xVel;
-  object.yPos += object.yVel;
+  object.xPos += object.xVel * multiplier;
+  object.yPos += object.yVel * multiplier;
 }
 
 function drawObject(object) {
@@ -765,25 +766,7 @@ function drawCraters(object) {
 }
 
 function drawGas(object) {
-//   fill(255, 0, 0);
-//   ellipse(object.gas.a[0], object.gas.a[1], 5);
-//   fill(255, 255, 0);
-//   ellipse(object.gas.b[0], object.gas.b[1], 5);
-//   fill(0, 255, 255);
-//   ellipse(object.gas.c[0], object.gas.c[1], 5);
-//   fill(0, 0, 255);
-//   ellipse(object.gas.d[0], object.gas.d[1], 5);
-  
-//   fill(255, 0, 0);
-//   ellipse(object.gas.p1[0], object.gas.p1[1], 5);
-//   fill(255, 255, 0);
-//   ellipse(object.gas.p2[0], object.gas.p2[1], 5);
-//   fill(0, 255, 255);
-//   ellipse(object.gas.p3[0], object.gas.p3[1], 5);
-//   fill(0, 0, 255);
-//   ellipse(object.gas.p4[0], object.gas.p4[1], 5);
-  
-  fill(object.color[0]+30, object.color[1]+30, object.color[2]+30);
+  fill(object.color[0]+50, object.color[1]+50, object.color[2]+50);
   beginShape();
   vertex(object.gas.a[0], object.gas.a[1]);
   vertex(object.gas.b[0], object.gas.b[1]);
@@ -814,7 +797,7 @@ function calcGravity(a, b) {
   }
   let distance = getDistance(a, b);
   if (distance < a.size*3) {
-    let gravity = (a.size/7)/(distance + a.size);
+    let gravity = a.size/(distance + a.size)*gravConstant;
     let direction = getDir(b, a);
     accelerate(b, gravity, direction);
     let velDir = getVelDir(b);
@@ -824,7 +807,7 @@ function calcGravity(a, b) {
 }
 
 function fireBullet(object, missile) {
-  let speed = 13;
+  let speed = bulletSpeed;
   object.wait.bullet = new Date();
   if (missile) {
     let size = width/60;
@@ -938,7 +921,7 @@ function genLoot() {
   let xOrY = parseInt(Math.random()+0.5);
   let x = Math.sign(Math.random()-0.5) * (Math.random()*bounds + (width + ship.size/2)*xOrY)/2 + ship.xPos;
   let y = Math.sign(Math.random()-0.5) * (Math.random()*bounds + (height + ship.size/2)*(1-xOrY))/2 + ship.yPos;
-  let newLoot = {type: types.LOOT, xPos: x, yPos: y, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: 0, spinFriction: 0, maxSpeed: 0, maxRotation: 0, size: ship.size/2, end: false};
+  let newLoot = {type: types.LOOT, xPos: x, yPos: y, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: 0, spinFriction: 0, maxSpeed: 0, maxRotation: 0, size: ship.size, end: false};
   for (let i = 0; i < objects.length; i++) {
     if (collision(newLoot, objects[i])) { return genLoot(); }
   }
@@ -950,6 +933,9 @@ function drawLoot(object) {
   rect(0, 0, object.size, object.size, object.size/10);
   fill(175);
   rect(0, 0, object.size*0.9, object.size*0.9, object.size*0.9/10);
+  fill(100);
+  rect(0, 0, object.size, object.size/20);
+  rect(0, 0, object.size/25, object.size);
 }
 
 function genDebris(object) {
