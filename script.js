@@ -439,7 +439,7 @@ function collide(a, b) {
 }
 
 function endObject(i) {
-  if (objects[i].type === types.SHIP || (objects[i].type === types.BULLET && objects[i].missile)) { genExplosion(objects[i]); }
+  if (objects[i].type === types.SHIP || (objects[i].type === types.BULLET && objects[i].missile) || objects[i].type === types.LOOT) { genExplosion(objects[i]); }
   if (objects[i].type === types.SHIP) {
     for (let j = 0; j < 10; j++) { genDebris(objects[i]); }
     if (objects[i] === ship) {
@@ -894,6 +894,7 @@ function trackTarget(object) {
   object.flame = {back: false, left: false, right: false};
   let direction = getDir(object, object.target);
   if (object.target.type === types.PLANET || (object.type === types.SHIP && object.target.type === types.BULLET)) { direction += !inFront(object, object.target) ? (onRight(object, object.target) ? -PI/3: PI/3) : (directFront(object, object.target) ? PI : (onRight(object, object.target) ? -PI/2 : PI/2)); }
+  direction = checkDir(direction);
   let distance = getDistance(object, object.target);
   let diff = dirDiff(direction, object.dir);
   spin(object, diff/(PI));
