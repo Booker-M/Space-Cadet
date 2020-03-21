@@ -1,17 +1,16 @@
-let newGame = true;
+let newGame = true; //true
 let gameStart, deathTime;
 
 const types = { SHIP: 'Ship', PLANET: 'Planet', BULLET: 'Bullet', DEBRIS: 'Debris', LOOT: 'Loot', Effect: 'Effect'};
 const effects = { BLUR: 'Blur', SMOKE: 'Smoke', EXPLOSION: 'Explosion'};
+const planetStyles = ['Crater', 'Water', 'Gas'];
 let ship = {};
 const moveSpeed = 0.25, rotateSpeed = 0.4, boostSpeed = 10;
-const totalStars = 200, totalShips = 6, totalPlanets = 6, totalLoot = 3;
+const totalStars = 200, totalShips = 6, totalPlanets = 6, totalLoot = 3; //6 ships
 let bounds;
-let maxPlanetSize, minPlanetSize;
-let flameSize = 5;
-let flameGrow = true;
-let stars = [];
-let objects = [];
+let maxPlanetSize, minPlanetSize, shadeAngle;
+let flameSize = 5, flameGrow = true;
+let stars = [], objects = [];
 let boostTime = 50, shieldTime = 2500;
 let bulletWait = 250, missileWait = 250*15, boostWait = 250*15;
 
@@ -48,6 +47,7 @@ function reset() {
 }
 
 function generation() {
+  shadeAngle = PI+PI/5;
   generatePlanets();
   generateShips();
   generateLoot();
@@ -258,7 +258,7 @@ function writeText(a, b, c, d, string) {
   textSize(width/40);
   fill(a, b, c, d);
   textAlign(CENTER, CENTER);
-  text(string, width/2-10, height/3);
+  text(string, width/2-10, ship.dead ? height/2 : height/3);
 }
 
 function playMusic() {
@@ -333,6 +333,9 @@ function outOfBounds(object) {
 }
 
 function offScreen(object) {
+  if (object.type === types.PLANET && object.ring) {
+    return (object.xPos > width/2 + ship.xPos + object.size || object.xPos < -width/2 + ship.xPos - object.size || object.yPos > height/2 + ship.yPos + object.size/2 || object.yPos < -height/2 + ship.yPos - object.size/2);
+  }
   return (object.xPos > width/2 + ship.xPos + object.size/2 || object.xPos < -width/2 + ship.xPos - object.size/2 || object.yPos > height/2 + ship.yPos + object.size/2 || object.yPos < -height/2 + ship.yPos - object.size/2);
 }
 
@@ -609,16 +612,198 @@ function genPlanet() {
   let size = Math.random() * (maxPlanetSize-minPlanetSize) + minPlanetSize;
   let x = Math.sign(Math.random()-0.5) * (Math.random()*bounds + (width + size*7)*xOrY)/2 + ship.xPos;
   let y = Math.sign(Math.random()-0.5) * (Math.random()*bounds + (height + size*7)*(1-xOrY))/2 + ship.yPos;
-  let newPlanet = {type: types.PLANET, xPos: x, yPos: y, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: 0, spinFriction: 0, maxSpeed: 0, maxRotation: 0, size: size, color: randomColor(), end: false};
+  let style = planetStyles[parseInt(Math.random()*planetStyles.length)];
+  // let style = 'Gas';
+  let ring = parseInt(Math.random()+0.2) === 0 ? false : true;
+  let newPlanet = {type: types.PLANET, xPos: x, yPos: y, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: 0, spinFriction: 0, maxSpeed: 0, maxRotation: 0, size: size, color: randomColor(), end: false, style: style, ring: ring};
   for (let i = 0; i < objects.length; i++) {
     if (collision(newPlanet, objects[i])) { return genPlanet(); }
   }
+  if (ring) { newPlanet.ringColor = randomColor(); }
+  if (style === 'Crater') { generateCraters(newPlanet); }
+  if (style === 'Gas') { gasCoords(newPlanet); }
   return newPlanet;
 }
 
+function generateCraters(object) {
+  object.craters = [];
+  for (i = 0; i < 5 + parseInt(object.size/100); i++) { object.craters[i] = genCrater(object); }
+}
+
+function genCrater(object) {
+  size = Math.random()*object.size/5 + object.size/15;
+  dir = Math.random()*2*PI - PI;
+  distance = Math.random()*((dir > shadeAngle - PI || dir < shadeAngle - 2*PI) ? object.size/4 : (object.size/2 - size/2));
+  newCrater = {xPos: Math.cos(dir)*distance, yPos: Math.sin(dir)*distance, size: size};
+  for (i = 0; i < object.craters.length; i++) {
+    if (collision(newCrater, object.craters[i])) { return genCrater(object); }
+  }
+  return newCrater;
+}
+
+function gasCoords(object) {
+  let angle1 = -(PI/4+PI/8) + Math.random()*PI/4;
+  let angle2 = angle1 + Math.random()*PI/8;
+  let angle4 = PI + (PI/4+PI/8) - Math.random()*PI/4;
+  let angle3 = angle4 - Math.random()*PI/8;
+  
+  let a = [object.size/2*Math.cos(angle1), object.size/2*Math.sin(angle1)];
+  let b = [object.size/2*Math.cos(angle2), object.size/2*Math.sin(angle2)];
+  let c = [object.size/2*Math.cos(angle3), object.size/2*Math.sin(angle3)];
+  let d = [object.size/2*Math.cos(angle4), object.size/2*Math.sin(angle4)];
+  
+  let pivot = angle2 + Math.random()*(-PI/2 - angle2);
+  let radius = Math.random()*object.size/2*0.9;
+  let p1 = [radius*Math.cos(pivot), radius*Math.sin(pivot)];
+  pivot = angle1 + Math.random()*(-PI/2 - angle1);
+  radius = radius + Math.random()*(object.size/2 - radius);
+  let p4 = [radius*Math.cos(pivot), radius*Math.sin(pivot)];
+  pivot = angle3 + Math.random()*(3*PI/2 - angle3);
+  radius = Math.random()*object.size/2*0.9;
+  let p2 = [radius*Math.cos(pivot), radius*Math.sin(pivot)];
+  pivot = angle4 + Math.random()*(3*PI/2 - angle4);
+  radius = radius + Math.random()*(object.size/2 - radius);
+  let p3 = [radius*Math.cos(pivot), radius*Math.sin(pivot)];
+  
+  let angle5 = (PI/4+PI/8) - Math.random()*PI/4;
+  let angle6 = angle5 - Math.random()*PI/8;
+  let angle8 = PI - (PI/4+PI/8) + Math.random()*PI/4;
+  let angle7 = angle8 + Math.random()*PI/8;
+  
+  let e = [object.size/2*Math.cos(angle5), object.size/2*Math.sin(angle5)];
+  let f = [object.size/2*Math.cos(angle6), object.size/2*Math.sin(angle6)];
+  let g = [object.size/2*Math.cos(angle7), object.size/2*Math.sin(angle7)];
+  let h = [object.size/2*Math.cos(angle8), object.size/2*Math.sin(angle8)];
+  
+  pivot = angle6 + Math.random()*(PI/2 - angle6);
+  radius = Math.random()*object.size/2*0.9;
+  let p5 = [radius*Math.cos(pivot), radius*Math.sin(pivot)];
+  pivot = angle5 + Math.random()*(PI/2 - angle5);
+  radius = radius + Math.random()*(object.size/2 - radius);
+  let p8 = [radius*Math.cos(pivot), radius*Math.sin(pivot)];
+  pivot = angle7 + Math.random()*(PI/2 - angle7);
+  radius = Math.random()*object.size/2*0.9;
+  let p6 = [radius*Math.cos(pivot), radius*Math.sin(pivot)];
+  pivot = angle8 + Math.random()*(PI/2 - angle8);
+  radius = radius + Math.random()*(object.size/2 - radius);
+  let p7 = [radius*Math.cos(pivot), radius*Math.sin(pivot)];
+  
+  object.gas = {a: a, b: b, c: c, d: d, e: e, f: f, g: g, h: h, p1: p1, p2: p2, p3: p3, p4: p4, p5: p5, p6: p6, p7: p7, p8: p8, angle1: angle1, angle2: angle2, angle3: angle3, angle4: angle4, angle5: angle5, angle6: angle6, angle7: angle7, angle8: angle8};
+}
+
 function drawPlanet(object) {
+  if (object.ring) { drawRing(object, false); }
   fill(object.color);
   ellipse(0, 0, object.size);
+  if (object.style === 'Gas') { drawGas(object); }
+  drawPlanetShadow(object);
+  if (object.style === 'Crater') { drawCraters(object); }
+  if (object.ring) { drawRing(object, true); }
+}
+
+function drawPlanetShadow(object) {
+  let angle1 = shadeAngle;
+  let angle2 = angle1+PI;
+  let midAngle = (angle1+angle2)/2;
+  let start = [object.size/2*Math.sin(angle1), object.size/2*Math.cos(angle1)];
+  let end = [object.size/2*Math.sin(angle2), object.size/2*Math.cos(angle2)];
+  let midPoint = [object.size/2*Math.sin(midAngle), object.size/2*Math.cos(midAngle)];
+  let a = [start[0] + (object.size/2)*(4/3)*Math.tan(PI/8)*Math.sin(angle1 + PI/2), start[1] + (object.size/2)*(4/3)*Math.tan(PI/8)*Math.cos(angle1 + PI/2)];
+  let b = [midPoint[0] + (object.size/2)*(4/3)*Math.tan(PI/8)*Math.sin(midAngle - PI/2), midPoint[1] + (object.size/2)*(4/3)*Math.tan(PI/8)*Math.cos(midAngle - PI/2)];
+  let c = [midPoint[0] + (object.size/2)*(4/3)*Math.tan(PI/8)*Math.sin(midAngle + PI/2), midPoint[1] + (object.size/2)*(4/3)*Math.tan(PI/8)*Math.cos(midAngle + PI/2)];
+  let d = [end[0] + (object.size/2)*(4/3)*Math.tan(PI/8)*Math.sin(angle2 - PI/2), end[1] + (object.size/2)*(4/3)*Math.tan(PI/8)*Math.cos(angle2 - PI/2)];
+  fill(0, 100);
+  beginShape();
+  vertex(start[0], start[1]);
+  bezierVertex(a[0], a[1], b[0], b[1], midPoint[0], midPoint[1]);
+  bezierVertex(c[0], c[1], d[0], d[1], end[0], end[1]);
+  bezierVertex(c[0]/2, c[1]/2, b[0]/2, b[1]/2, start[0], start[1]);
+  endShape();
+}
+
+function drawRing(object, front) {
+  let ringSize = (object.size/2)*(width - (ship.yPos - object.yPos))/width;
+  let radii = [1, 0.78, 0.57, 0.4];
+  if (!front) { for (i = 0; i < radii.length; i++) { radii[i] = radii[i] * -0.6; } }
+  
+  fill(object.ringColor[0], object.ringColor[1], object.ringColor[2], 100);
+  beginShape();
+  vertex(object.size, 0);
+  bezierVertex(object.size*3/4, ringSize*radii[0], -object.size*3/4, ringSize*radii[0], -object.size, 0);
+  vertex(-object.size*0.9, 0);
+  bezierVertex(-object.size*2/3, ringSize*radii[1], object.size*2/3, ringSize*radii[1], object.size*0.9, 0);
+  endShape();
+    
+  fill(object.ringColor[0], object.ringColor[1], object.ringColor[2], 200);
+  beginShape();
+  vertex(object.size*0.9, 0);
+  bezierVertex(object.size*2/3, ringSize*radii[1], -object.size*2/3, ringSize*radii[1], -object.size*0.9, 0);
+  vertex(-object.size*0.8, 0);
+  bezierVertex(-object.size*2/3, ringSize*radii[2], object.size*2/3, ringSize*radii[2], object.size*0.8, 0);
+  endShape();
+    
+  fill(object.ringColor[0], object.ringColor[1], object.ringColor[2], 150);
+  beginShape();
+  vertex(object.size*0.8, 0);
+  bezierVertex(object.size*2/3, ringSize*radii[2], -object.size*2/3, ringSize*radii[2], -object.size*0.8, 0);
+  vertex(-object.size*0.7, 0);
+  bezierVertex(-object.size*2/3, ringSize*radii[3], object.size*2/3, ringSize*radii[3], object.size*0.7, 0);
+  endShape();
+}
+
+function drawCraters(object) {
+  for (i = 0; i < object.craters.length; i++) {
+    fill(object.color);
+    ellipse(object.craters[i].xPos, object.craters[i].yPos, object.craters[i].size);
+    fill(0, 200);
+    ellipse(object.craters[i].xPos, object.craters[i].yPos, object.craters[i].size*0.9);
+    fill(object.color);
+    ellipse(object.craters[i].xPos - Math.cos(shadeAngle + PI/2)*object.craters[i].size*(1/18), object.craters[i].yPos - Math.sin(shadeAngle + PI/2)*object.craters[i].size*(1/18), object.craters[i].size*0.8);
+    fill(0, 100);
+    ellipse(object.craters[i].xPos - Math.cos(shadeAngle + PI/2)*object.craters[i].size*(1/18), object.craters[i].yPos - Math.sin(shadeAngle + PI/2)*object.craters[i].size*(1/18), object.craters[i].size*0.8);
+  }
+}
+
+function drawGas(object) {
+//   fill(255, 0, 0);
+//   ellipse(object.gas.a[0], object.gas.a[1], 5);
+//   fill(255, 255, 0);
+//   ellipse(object.gas.b[0], object.gas.b[1], 5);
+//   fill(0, 255, 255);
+//   ellipse(object.gas.c[0], object.gas.c[1], 5);
+//   fill(0, 0, 255);
+//   ellipse(object.gas.d[0], object.gas.d[1], 5);
+  
+//   fill(255, 0, 0);
+//   ellipse(object.gas.p1[0], object.gas.p1[1], 5);
+//   fill(255, 255, 0);
+//   ellipse(object.gas.p2[0], object.gas.p2[1], 5);
+//   fill(0, 255, 255);
+//   ellipse(object.gas.p3[0], object.gas.p3[1], 5);
+//   fill(0, 0, 255);
+//   ellipse(object.gas.p4[0], object.gas.p4[1], 5);
+  
+  fill(object.color[0]+30, object.color[1]+30, object.color[2]+30);
+  beginShape();
+  vertex(object.gas.a[0], object.gas.a[1]);
+  vertex(object.gas.b[0], object.gas.b[1]);
+  bezierVertex(object.gas.p1[0], object.gas.p1[1], object.gas.p2[0], object.gas.p2[1], object.gas.c[0], object.gas.c[1]);
+  vertex(object.gas.d[0], object.gas.d[1]);
+  bezierVertex(object.gas.p3[0], object.gas.p3[1], object.gas.p4[0], object.gas.p4[1], object.gas.a[0], object.gas.a[1]);
+  endShape();
+  arc(0, 0, object.size, object.size, object.gas.angle1, object.gas.angle2, CHORD);
+  arc(0, 0, object.size, object.size, object.gas.angle3, object.gas.angle4, CHORD);
+  
+  fill(object.color[0]+20, object.color[1]+20, object.color[2]+20);
+  beginShape();
+  vertex(object.gas.e[0], object.gas.e[1]);
+  vertex(object.gas.f[0], object.gas.f[1]);
+  bezierVertex(object.gas.p5[0], object.gas.p5[1], object.gas.p6[0], object.gas.p6[1], object.gas.g[0], object.gas.g[1]);
+  vertex(object.gas.h[0], object.gas.h[1]);
+  bezierVertex(object.gas.p7[0], object.gas.p7[1], object.gas.p8[0], object.gas.p8[1], object.gas.e[0], object.gas.e[1]);
+  endShape();
+  arc(0, 0, object.size, object.size, object.gas.angle6, object.gas.angle5, CHORD);
+  arc(0, 0, object.size, object.size, object.gas.angle8, object.gas.angle7, CHORD);
 }
 
 function calcGravity(a, b) {
@@ -751,8 +936,8 @@ function generateLoot() {
 
 function genLoot() {
   let xOrY = parseInt(Math.random()+0.5);
-  let x = Math.sign(Math.random()-0.5) * (Math.random()*bounds + (width + 30)*xOrY)/2 + ship.xPos;
-  let y = Math.sign(Math.random()-0.5) * (Math.random()*bounds + (height + 30)*(1-xOrY))/2 + ship.yPos;
+  let x = Math.sign(Math.random()-0.5) * (Math.random()*bounds + (width + ship.size/2)*xOrY)/2 + ship.xPos;
+  let y = Math.sign(Math.random()-0.5) * (Math.random()*bounds + (height + ship.size/2)*(1-xOrY))/2 + ship.yPos;
   let newLoot = {type: types.LOOT, xPos: x, yPos: y, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: 0, spinFriction: 0, maxSpeed: 0, maxRotation: 0, size: ship.size/2, end: false};
   for (let i = 0; i < objects.length; i++) {
     if (collision(newLoot, objects[i])) { return genLoot(); }
