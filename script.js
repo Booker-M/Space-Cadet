@@ -1,4 +1,4 @@
-let newGame = true; //true
+let newGame = false; //true
 let gameStart, deathTime;
 
 const types = { SHIP: 'Ship', PLANET: 'Planet', BULLET: 'Bullet', DEBRIS: 'Debris', LOOT: 'Loot', Effect: 'Effect'};
@@ -797,7 +797,7 @@ function calcGravity(a, b) {
   }
   let distance = getDistance(a, b);
   if (distance < a.size*3) {
-    let gravity = a.size/(distance*2 + a.size)*gravConstant;
+    let gravity = (a.size/(distance*2 + a.size))*gravConstant;
     let direction = getDir(b, a);
     accelerate(b, gravity, direction);
     let velDir = getVelDir(b);
@@ -857,13 +857,13 @@ function genShip() {
 
 function lockTarget(a, b) {
   if ((a.type !== types.SHIP || a===ship) && (a.type !== types.BULLET || !a.missile || a.parent===b) || (b.parent != null && b.parent === a)) { return; }
-  if (a.target != null && ((a.target === ship && ship.dead) || a.target.end || getDistance(a, a.target) > width)) { a.target = null; }
+  if (a.target != null && ((a.target === ship && ship.dead) || a.target.end || (a.target.type !== types.PLANET && getDistance(a, a.target) > width) || (a.target.type === types.PLANET && getDistance(a, a.target) > a.target.size))) { a.target = null; }
   let distance = getDistance(a, b);
   if (distance > width || b.type !== types.SHIP && b.type !== types.LOOT && (b.type !== types.BULLET || !b.missile) && (b.type !== types.PLANET || a.type === types.BULLET)) { return; }
   if (b.type === types.PLANET) {
     if (a.target != null && a.target.type === types.PLANET) {
       if (distance >= getDistance(a, a.target)) { return; }
-    } else if (distance > b.size*2/3) { return; }
+    } else if (distance > b.size) { return; }
   } else {
     if (a.type === types.SHIP && inFront(a, b)) {
       currentTime = new Date();
