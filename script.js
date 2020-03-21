@@ -1,4 +1,4 @@
-let newGame = true; //true
+let newGame = false; //true
 let gameStart, deathTime;
 
 const types = { SHIP: 'Ship', PLANET: 'Planet', BULLET: 'Bullet', DEBRIS: 'Debris', LOOT: 'Loot', Effect: 'Effect'};
@@ -434,7 +434,7 @@ function collide(a, b) {
         if (both[i===0?1:0].type === types.BULLET) { shield(both[i===0?1:0].parent, false); }
       }
       both[i].end = true;
-    }
+    } else if (both[i].style === "Crater") { makeCrater(both[i], both[i===0?1:0]); }
   }
 }
 
@@ -640,6 +640,17 @@ function genCrater(object) {
     if (collision(newCrater, object.craters[i])) { return genCrater(object); }
   }
   return newCrater;
+}
+
+function makeCrater(a, b) {
+  size = b.size;
+  dir = getDir(a, b);
+  distance = a.size/2-b.size/2;
+  newCrater = {xPos: Math.cos(dir)*distance, yPos: Math.sin(dir)*distance, size: size};
+  for (i = 0; i < a.craters.length; i++) {
+    if (collision(newCrater, a.craters[i])) { return; }
+  }
+  a.craters.push(newCrater);
 }
 
 function gasCoords(object) {
