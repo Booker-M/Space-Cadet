@@ -1,4 +1,4 @@
-let newGame = true; //true
+let newGame = false; //true
 let gameStart, deathTime;
 
 const types = { SHIP: 'Ship', PLANET: 'Planet', BULLET: 'Bullet', DEBRIS: 'Debris', LOOT: 'Loot', Effect: 'Effect'};
@@ -628,7 +628,7 @@ function genPlanet() {
 
 function generateCraters(object) {
   object.craters = [];
-  for (i = 0; i < 5 + parseInt(object.size/100); i++) { object.craters[i] = genCrater(object); }
+  for (i = 0; i < 5 + parseInt(object.size/200); i++) { object.craters[i] = genCrater(object); }
 }
 
 function genCrater(object) {
@@ -797,7 +797,7 @@ function calcGravity(a, b) {
   }
   let distance = getDistance(a, b);
   if (distance < a.size*3) {
-    let gravity = a.size/(distance + a.size)*gravConstant;
+    let gravity = a.size/(distance*2 + a.size)*gravConstant;
     let direction = getDir(b, a);
     accelerate(b, gravity, direction);
     let velDir = getVelDir(b);
@@ -863,7 +863,7 @@ function lockTarget(a, b) {
   if (b.type === types.PLANET) {
     if (a.target != null && a.target.type === types.PLANET) {
       if (distance >= getDistance(a, a.target)) { return; }
-    } else if (distance > a.size*10) { return; }
+    } else if (distance > b.size*2/3) { return; }
   } else {
     if (a.type === types.SHIP && inFront(a, b)) {
       currentTime = new Date();
@@ -893,7 +893,7 @@ function trackTarget(object) {
   }
   object.flame = {back: false, left: false, right: false};
   let direction = getDir(object, object.target);
-  if (object.target.type === types.PLANET || (object.type === types.SHIP && object.target.type === types.BULLET)) { direction += !inFront(object, object.target) ? 0 : directFront(object, object.target) ? PI : onRight(object, object.target) ? -PI/2 : PI/2; }
+  if (object.target.type === types.PLANET || (object.type === types.SHIP && object.target.type === types.BULLET)) { direction += !inFront(object, object.target) ? (onRight(object, object.target) ? -PI/3: PI/3) : (directFront(object, object.target) ? PI : (onRight(object, object.target) ? -PI/2 : PI/2)); }
   let distance = getDistance(object, object.target);
   let diff = dirDiff(direction, object.dir);
   spin(object, diff/(PI));
