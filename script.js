@@ -420,16 +420,13 @@ function collide(a, b) {
     if (both[i].type !== types.PLANET) {
       if (both[i].type === types.SHIP && both[i===0?1:0].type !== types.PLANET) {
         if (both[i===0?1:0].type === types.LOOT) { continue; }
-        if (both[i===0?1:0].type === types.SHIP && both[i===0?1:0].boost === 0 && both[i===0?1:0].shield === 0) {
-            both[i].kills++;
-          }
+        if (both[i===0?1:0].type === types.SHIP && both[i===0?1:0].boost === 0 && both[i===0?1:0].shield === 0) { both[i].kills++; }
         if (both[i].boost > 0 || both[i].shield > 0) {
           if (both[i].boost === 0 && both[i].shield > 0) { shield(both[i], true); }
           continue;
         }
-      } else if (both[i].type === types.BULLET && both[i===0?1:0].type === types.SHIP && both[i===0?1:0].boost === 0 && both[i===0?1:0].shield === 0) {
-        both[i].parent.kills++;
-      } else if (both[i].type === types.LOOT) {
+      } else if (both[i].type === types.BULLET && both[i===0?1:0].type === types.SHIP && both[i===0?1:0].boost === 0 && both[i===0?1:0].shield === 0) { both[i].parent.kills++; }
+      else if (both[i].type === types.LOOT) {
         if (both[i===0?1:0].type === types.SHIP) { shield(both[i===0?1:0], false); }
         if (both[i===0?1:0].type === types.BULLET) { shield(both[i===0?1:0].parent, false); }
       }
@@ -647,10 +644,9 @@ function makeCrater(a, b) {
   dir = getDir(a, b);
   distance = a.size/2-b.size/2;
   newCrater = {xPos: Math.cos(dir)*distance, yPos: Math.sin(dir)*distance, size: size};
-  for (i = 0; i < a.craters.length; i++) {
-    if (collision(newCrater, a.craters[i])) { return; }
-  }
+  // for (i = 0; i < a.craters.length; i++) { if (collision(newCrater, a.craters[i])) { return; } }
   a.craters.push(newCrater);
+  console.log(a.craters.length);
 }
 
 function gasCoords(object) {
