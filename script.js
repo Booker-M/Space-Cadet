@@ -1,4 +1,4 @@
-let newGame = false; //true
+let newGame = true; //true
 let gameStart, deathTime;
 
 const types = { SHIP: 'Ship', PLANET: 'Planet', BULLET: 'Bullet', DEBRIS: 'Debris', LOOT: 'Loot', Effect: 'Effect'};
