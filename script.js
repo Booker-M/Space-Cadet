@@ -646,7 +646,6 @@ function makeCrater(a, b) {
   newCrater = {xPos: Math.cos(dir)*distance, yPos: Math.sin(dir)*distance, size: size};
   // for (i = 0; i < a.craters.length; i++) { if (collision(newCrater, a.craters[i])) { return; } }
   a.craters.push(newCrater);
-  console.log(a.craters.length);
 }
 
 function gasCoords(object) {
