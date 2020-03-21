@@ -6,7 +6,7 @@ const effects = { BLUR: 'Blur', SMOKE: 'Smoke', EXPLOSION: 'Explosion'};
 const planetStyles = ['Crater', 'Water', 'Gas'];
 let ship = {};
 let moveSpeed = 0.25, rotateSpeed = 0.3, boostSpeed = 10, friction = 0.996, spinFriction = 0.97, bulletSpeed = 13, gravConstant = 1/7, maxSpeed = 10, maxRotation = 10, multiplier;
-const totalStars = 200, totalShips = 0, totalPlanets = 6, totalLoot = 3; //6 ships
+const totalStars = 200, totalShips = 0, totalPlanets = 6, totalLoot = 3;
 let bounds;
 let maxPlanetSize, minPlanetSize, shadeAngle;
 let flameSize = 5, flameGrow = true;
@@ -1037,7 +1037,7 @@ function newWave() {
   enemies = 0;
   wave++;
   if (wave % 3 === 0) {
-    for (i = 0; i < wave/3; i++) { generateShips(3 * (wave/3), i+1, randomColor()); }
+    for (i = 0; i < wave/3; i++) { generateShips(3 * (wave/3), i+2, randomColor()); }
     for (i = 0; i < wave/3 - 1; i++) { generateShips(2 * (wave/3), 1, ship.color); }
   } else {
     generateShips(3 + 2*(wave - 1));
