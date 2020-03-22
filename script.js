@@ -28,7 +28,9 @@ const sounds = { //https://freesound.org/people/ProjectsU012/packs/18837
   EXPLODE: new Audio('https://audiosoundclips.com/wp-content/uploads/2019/10/8-Bit-SFX_Explosion-2.mp3'),
   MISSILE: new Audio('https://freesound.org/data/previews/404/404754_140737-lq.mp3'),
   BOOST: new Audio('https://freesound.org/data/previews/340/340956_5858296-lq.mp3'),
-  SHIELD: new Audio('https://freesound.org/data/previews/456/456613_5052309-lq.mp3')
+  SHIELD: new Audio('https://freesound.org/data/previews/456/456613_5052309-lq.mp3'),
+  LIFE: new Audio('https://freesound.org/data/previews/317/317768_3905081-lq.mp3'),
+  VICTORY: new Audio('https://freesound.org/data/previews/138/138485_758593-lq.mp3')
 };
 
 function setup() {
@@ -47,6 +49,7 @@ function reset() {
 }
 
 function generation() {
+  allies = 0, enemies = 0;
   shadeAngle = PI+PI/5;
   generatePlanets();
   generateLoot();
@@ -434,8 +437,16 @@ function collide(a, b) {
   if (a.end || b.end || a.type === types.EFFECT || b.type === types.EFFECT) { return; }
   let resultA = crash(a, b);
   let resultB = crash(b, a);
-  a.end = resultA.end;
-  b.end = resultB.end;
+  if (resultA.end) {
+    a.end = true;
+    if (b.type === types.SHIP) { b.kills++; }
+    if (b.type == types.BULLET) { b.parent.kills++ }
+  }
+  if (resultB.end) {
+    b.end = true;
+    if (a.type === types.SHIP) { a.kills++; }
+    if (a.type == types.BULLET) { a.parent.kills++ }
+  }
   if (resultA.shield) { shield(a, true); }
   if (resultB.shield) { shield(b, true); }
   if (resultA.hit) { a.lastHit = new Date(); }
@@ -452,7 +463,6 @@ function crash(a, b) {
   if (a.type !== types.PLANET) {
       if (a.type === types.SHIP) {
         if (b.type === types.LOOT) { return result; }
-        if (b.type === types.SHIP && currentTime - b.lastHit > hitDelay && b.boost === 0 && b.shield === 0 && (a.team === 0 || a.team !== b.team)) { a.kills++; }
         if (b.type !== types.PLANET) {
           if (currentTime - a.lastHit < hitDelay || a.boost > 0) { return result; }
           result.hit = true;
@@ -465,16 +475,22 @@ function crash(a, b) {
             return result;
           }
         }
-      } else if (a.type === types.BULLET && b.type === types.SHIP && currentTime - b.lastHit > hitDelay && b.boost === 0 && b.shield === 0 && (a.parent.team === 0 || a.parent.team !== b.team)) { a.parent.kills++; }
-      else if (a.type === types.LOOT) {
-        if (b.type === types.SHIP) { shield(b, false); }
-        if (b.type === types.BULLET) { shield(b.parent, false); }
-      }
+      } else if (a.type === types.LOOT) { giveLoot(b); }
     result.end = true;
     } else if (a.style === "Crater") {
       makeCrater(a, b);
     }
   return result;
+}
+
+function giveLoot(object) {
+  if ((object===ship || object.type===types.BULLET && object.parent===ship) && ship.lives <= 10 && Math.random() < 0.3) {
+    playSound(sounds.LIFE, object);
+    ship.lives++;
+    return;
+  }
+  if (object.type === types.SHIP) { shield(object, false); }
+  if (object.type === types.BULLET) { shield(object.parent, false); }
 }
 
 function endObject(i) {
@@ -582,9 +598,10 @@ function lockTarget(a, b) {
 }
 
 function trackTarget(object) {
+  let slow = 0.6;
   if ((object.type !== types.SHIP || object === ship) && (object.type !== types.BULLET || !object.missile)) { return; }
   if (object.target == null) {
-    accelerate(object, moveSpeed*0.7, object.dir);
+    accelerate(object, moveSpeed*slow, object.dir);
     return;
   }
   object.flame = {back: true, left: false, right: false};
@@ -594,11 +611,11 @@ function trackTarget(object) {
   let distance = getDistance(object, object.target);
   let diff = dirDiff(direction, object.dir);
   spin(object, diff/(PI));
-  let speed = moveSpeed*0.7;
+  let speed = moveSpeed*slow;
   if (object.target.type === types.PLANET) { speed = moveSpeed; }
   else if (object.target.type === types.SHIP) {
     let speedDiff = Math.max(0, getSpeed(object.target) - getSpeed(object));
-    if (distance < object.target.size*10 && object.type !== types.BULLET) { speed = Math.min(moveSpeed*0.2, speedDiff); }
+    if (distance < object.target.size*15 && object.type !== types.BULLET) { speed = Math.min(moveSpeed*0.2, speedDiff); }
   }
   accelerate(object, speed, direction);
   if (object.type === types.SHIP) {
@@ -1059,7 +1076,7 @@ function drawExplosion(object) {
 }
 
 function newWave() {
-  allies = 0, enemies = 0,
+  playSound(sounds.VICTORY, ship);
   wave++;
   let totalShips = 1 + 2 * wave;
   let teams = totalShips - 1;
