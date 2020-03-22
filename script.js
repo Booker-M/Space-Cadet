@@ -1,12 +1,12 @@
-let newGame = true; //true
+let newGame = false; //true
 let gameStart, deathTime, waveTime, currentTime;
 
-const types = { SHIP: 'Ship', PLANET: 'Planet', BULLET: 'Bullet', DEBRIS: 'Debris', LOOT: 'Loot', Effect: 'Effect'};
+const types = { STAR: 'Star', SHIP: 'Ship', PLANET: 'Planet', BULLET: 'Bullet', DEBRIS: 'Debris', LOOT: 'Loot', Effect: 'Effect'};
 const effects = { BLUR: 'Blur', SMOKE: 'Smoke', EXPLOSION: 'Explosion'};
 const planetStyles = ['Crater', 'Water', 'Gas'];
 let ship = {};
 let moveSpeed = 0.25, rotateSpeed = 0.3, boostSpeed = 10, friction = 0.996, spinFriction = 0.97, bulletSpeed = 13, gravConstant = 1/7, maxSpeed = 10, maxRotation = 10, multiplier;
-const totalStars = 200, totalPlanets = 6, totalLoot = 3;
+const totalStars = 300, starLayers = 10, totalPlanets = 6, totalLoot = 3;
 let bounds;
 let maxPlanetSize, minPlanetSize, shadeAngle;
 let flameSize = 5, flameGrow = true;
@@ -41,6 +41,8 @@ function setup() {
 
 function reset() {
   startTime = new Date();
+  allies = 0, enemies = 0;
+  shadeAngle = PI+PI/5;
   ship = {type: types.SHIP, xPos: 0, yPos: 0, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: friction, spinFriction: spinFriction, maxSpeed: maxSpeed, maxRotation: maxRotation, size: width/30, color: randomColor(), end: false, wait: {bullet: new Date(), missile: new Date(), boost: new Date()}, flame: {back: false, left: false, right: false}, kills: 0, boost: 0, shield: 0, team: 1, lives: 3, lastHit: new Date()};
   objects = [ship];
   generateStars();
@@ -49,8 +51,6 @@ function reset() {
 }
 
 function generation() {
-  allies = 0, enemies = 0;
-  shadeAngle = PI+PI/5;
   generatePlanets();
   generateLoot();
   wave--;
@@ -170,11 +170,13 @@ function refresh() {
   drawStars();
   flameFlicker();
   for (let i = 0; i < objects.length; i++) {
+    let temp = objects[i].type;
     if (objects[i] === ship && ship.lives === 0) { continue; }
     if (objects[i].type === types.SHIP || objects[i].type === types.BULLET || objects[i].type === types.DEBRIS) {
       move(objects[i]);
       trackTarget(objects[i]);
     }
+    if (objects[i] == null) { console.log(temp); }
     if (outOfBounds(objects[i])) { fix(i); }
     checkSpeed(i);
     if (objects[i].type === types.EFFECT) { adjustEffect(i); }
@@ -256,13 +258,13 @@ function writeText(a, b, c, d, string) {
 function hearts() {
   resetMatrix();
   fill(200,0,0);
-  let s = 15;
+  let s = 12;
   translate(40 + s/2, 95);
   for (i = 0; i < ship.lives; i++) {
     ellipse(-s/2*0.9, s/2, s);
     ellipse(s/2*0.9, s/2, s);
     triangle(-s*0.92, s*0.72, s*0.92, s*0.72, 0, s*1.6);
-    translate(2.1*s, 0);
+    translate(2.5*s, 0);
   }
 }
 
@@ -324,6 +326,7 @@ function drawObject(object) {
         case effects.EXPLOSION: drawExplosion(object); break;
     }; break;
     case types.LOOT: drawLoot(object); break;
+    case types.STAR: drawStar(object); break;
   }
 }
 
@@ -435,8 +438,8 @@ function adjustEffect(i) {
 
 function collide(a, b) {
   if (a.end || b.end || a.type === types.EFFECT || b.type === types.EFFECT) { return; }
-  let resultA = crash(a, b);
-  let resultB = crash(b, a);
+  let resultA = bump(a, b);
+  let resultB = bump(b, a);
   if (resultA.end) {
     a.end = true;
     if (b.type === types.SHIP) { b.kills++; }
@@ -453,7 +456,7 @@ function collide(a, b) {
   if (resultB.hit) { b.lastHit = new Date(); }
 }
 
-function crash(a, b) {
+function bump(a, b) {
   let result = {end: false, shield: false, hit: false}
   if (b.type === types.PLANET) {
     a.xVel = 0;
@@ -470,11 +473,14 @@ function crash(a, b) {
             result.shield = true;
             return result;
           }
-          if (a.lives > 1) {
+        } else if (a.lives > 1) {
+          result.hit = true;
+          backup(a, b);
+        }
+        if (a.lives > 1) {
             a.lives--;
             return result;
           }
-        }
       } else if (a.type === types.LOOT) { giveLoot(b); }
     result.end = true;
     } else if (a.style === "Crater") {
@@ -644,36 +650,69 @@ function calcGravity(a, b) {
 function genCoords(object) {
   let size = object.size;
   let xOrY = parseInt(Math.random()+0.5);
-  object.xPos = Math.sign(Math.random()-0.5) * (Math.random()*bounds + (width + (object.type === types.PLANET ? size*7 : size))*xOrY)/2 + ship.xPos;
-  object.yPos = Math.sign(Math.random()-0.5) * (Math.random()*bounds + (height + (object.type === types.PLANET ? size*7 : size))*(1-xOrY))/2 + ship.yPos;
-  if (object.type === types.PLANET) { object.size = object.size*2; }
+  object.xPos = Math.sign(Math.random()-0.5) * (Math.random()*bounds + (width + (object.type === types.PLANET ? size*6 : size))*xOrY)/2 + ship.xPos;
+  object.yPos = Math.sign(Math.random()-0.5) * (Math.random()*bounds + (height + (object.type === types.PLANET ? size*6 : size))*(1-xOrY))/2 + ship.yPos;
   for (i = 0; i < objects.length; i++) {
     if (object === objects[i]) { i++; }
-    if (collision(object, objects[i])) { genCoords(object); }
+    if (collision(object, objects[i])) { backup(object, objects[i]); }
   }
-  if (object.type === types.PLANET) { object.size = object.size/2; }
+  if (object === ship) { generateStars(); }
+}
+
+function backup(a, b) {
+  let angle = getDir(b, a);
+  let distance = Math.max(a.size*3, b.size*3) + a.size/2 + b.size/2;
+  a.xPos = -Math.cos(angle)*distance;
+  a.yPos = -Math.sin(angle)*distance;
+  if (a.type === types.SHIP) { a.dir = angle; }
+  for (i = 0; i < objects.length; i++) {
+    if (a === objects[i]) { i++; }
+    if (collision(a, objects[i])) { backup(a, objects[i]); }
+  }
+  if (a === ship) { generateStars(); }
+}
+
+function genStarCoords(object) {
+  let size = object.size;
+  let xOrY = parseInt(Math.random()+0.5);
+  object.xPos = (Math.sign(Math.random()-0.5) * (Math.random()*width + (width + size)*xOrY)/2)*object.layer + ship.xPos;
+  object.yPos = (Math.sign(Math.random()-0.5) * (Math.random()*height + (height + size)*(1-xOrY))/2)*object.layer + ship.yPos;
 }
 
 function generateStars() {
   stars = [];
-  for (let i=0; i < totalStars; i++) {
-   stars.push({xPos: Math.random() * width, yPos: Math.random() * height, color:'white'});
+  perLayer = totalStars/starLayers;
+  for (i = 0; i < totalStars; i++) {
+    stars.push(genStar(1 + parseInt(i/perLayer)));
   }
 }
 
+function genStar(layer) {
+  size = width/250 + Math.random();
+  let xPos = Math.sign(Math.random()-0.5) * (Math.random()*width - size/2)*layer + ship.xPos;
+  let yPos = Math.sign(Math.random()-0.5) * (Math.random()*height - size/2)*layer + ship.yPos;
+  newStar = {type: types.STAR, xPos: xPos, yPos: yPos, dir: 0, size: size, color: (200), layer: layer};
+  return newStar;
+}
+
 function drawStars() {
-  let size = width/120;
-  fill(200, 200);
-  let t = 10;
-  for (let j = 0; j < t; j++) {
-    for (let i = stars.length * j/t; i < stars.length * (j+1)/t; i++) {
-      if (stars[i].xPos > width + ship.xPos/j + size/2) { stars[i].xPos = ship.xPos/j}
-      if (stars[i].xPos < ship.xPos/j - size/2) { stars[i].xPos = ship.xPos/j + width}
-      if (stars[i].yPos > height + ship.yPos/j +size/2) { stars[i].yPos = ship.yPos/j}
-      if (stars[i].yPos < ship.yPos/j - size/2) { stars[i].yPos = ship.yPos/j + height}
-      ellipse(stars[i].xPos - ship.xPos/j, stars[i].yPos - ship.yPos/j, size/2, size/2);
+  for (i = 0; i < stars.length; i++) {
+    stars[i].xPos = (stars[i].xPos-ship.xPos)/stars[i].layer + ship.xPos;
+    stars[i].yPos = (stars[i].yPos-ship.yPos)/stars[i].layer + ship.yPos;
+    if (regenRange(stars[i])) {
+      genStarCoords(stars[i]);
+      continue;
     }
+    drawObject(stars[i]);
+    stars[i].xPos = (stars[i].xPos-ship.xPos)*stars[i].layer + ship.xPos;
+    stars[i].yPos = (stars[i].yPos-ship.yPos)*stars[i].layer + ship.yPos;
   }
+}
+
+function drawStar(object) {
+  let size = object.size;
+  fill(object.color, 200);
+  ellipse(0, 0, size, size);
 }
 
 function generateShips(number, team, color) {
@@ -712,9 +751,6 @@ function drawShip(object) {
 }
 
 function drawFlames(object) {
-  resetMatrix();
-  translate(object.xPos - ship.xPos + width/2, object.yPos - ship.yPos + height/2);
-  rotate(object.dir);
   fill(255, 0, 0, 200-flameSize);
   let size = object.size;
   let time = new Date();
@@ -754,9 +790,6 @@ function drawBoost(object) {
 }
 
 function drawShield(object) {
-  resetMatrix();
-  translate(object.xPos - ship.xPos + width/2, object.yPos - ship.yPos + height/2);
-  rotate(object.dir);
   fill(255, 0, 255, 60-flameSize);
   let size = object.size;
   ellipse(-3, 0, flameSize + size*1.7, flameSize + size*1.3);
