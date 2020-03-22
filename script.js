@@ -23,12 +23,14 @@ let startTime, trackLength = 0.0;
 const music = [
   new Audio('http://soundimage.org/wp-content/uploads/2016/11/Automation.mp3')
 ];
-const sounds = { //https://freesound.org/people/ProjectsU012/packs/18837
+const sounds = {
   SHOOT: new Audio('https://freesound.org/data/previews/459/459145_6142149-lq.mp3'),
   EXPLODE: new Audio('https://audiosoundclips.com/wp-content/uploads/2019/10/8-Bit-SFX_Explosion-2.mp3'),
   MISSILE: new Audio('https://freesound.org/data/previews/404/404754_140737-lq.mp3'),
   BOOST: new Audio('https://freesound.org/data/previews/340/340956_5858296-lq.mp3'),
+  HIT: new Audio('https://freesound.org/data/previews/170/170141_2578041-lq.mp3'),
   SHIELD: new Audio('https://freesound.org/data/previews/456/456613_5052309-lq.mp3'),
+  SHIELDHIT: new Audio('https://freesound.org/data/previews/459/459782_2758720-lq.mp3'),
   LIFE: new Audio('https://freesound.org/data/previews/317/317768_3905081-lq.mp3'),
   VICTORY: new Audio('https://freesound.org/data/previews/138/138485_758593-lq.mp3')
 };
@@ -170,24 +172,22 @@ function refresh() {
   drawStars();
   flameFlicker();
   for (let i = 0; i < objects.length; i++) {
-    let temp = objects[i].type;
-    if (objects[i] === ship && ship.lives === 0) { continue; }
     if (objects[i].type === types.SHIP || objects[i].type === types.BULLET || objects[i].type === types.DEBRIS) {
       move(objects[i]);
       trackTarget(objects[i]);
     }
-    if (objects[i] == null) { console.log(temp); }
     if (outOfBounds(objects[i])) { fix(i); }
-    checkSpeed(i);
-    if (objects[i].type === types.EFFECT) { adjustEffect(i); }
-    if (objects[i].type === types.SHIP) { adjustShield(objects[i]); }
-    if (objects[i].end === true && endObject(i)) { i--; continue; }
+    checkSpeed(objects[i]);
+    adjust(objects[i]);
+    if (objects[i] === ship && ship.lives === 0) { continue; }
+    else if (objects[i].end === true && endObject(i)) { i--; continue; }
     for (let j = i + 1; j < objects.length; j++) {
-      if (objects[j] === ship && ship.lives === 0) { continue; }
       if (collision(objects[i], objects[j])) { collide(objects[i], objects[j]); }
       calcGravity(objects[i], objects[j]);
       lockTarget(objects[i], objects[j]);
       lockTarget(objects[j], objects[i]);
+      if (objects[j] === ship && ship.lives === 0) { continue; }
+      else if (objects[j].end === true && endObject(j)) { j--; continue; }
     }
     drawObject(objects[i]);
   }
@@ -418,22 +418,27 @@ function fix(i) {
   } else { objects[i].end = true; }
 }
 
-function checkSpeed(i) {
-  if (((objects[i].type === types.BULLET && !objects[i].missile) || objects[i].type === types.DEBRIS) && parseInt(getSpeed(objects[i])) < 3) { objects[i].end = true; }
+function checkSpeed(object) {
+  if (((object.type === types.BULLET && !object.missile) || object.type === types.DEBRIS) && parseInt(getSpeed(object)) < 3) { object.end = true; }
 }
 
-function adjustShield(object) {
+function adjust(object) {
+  if (object.type === types.SHIP) { adjustShip(object); }
+  if (object.type === types.EFFECT) { adjustEffect(object); }
+}
+
+function adjustShip(object) {
   if (object.boost > 0) { object.boost--; }
   if (object.shield > 1) { object.shield--; }
   else if (object.shield === 1) { shield(object, true); }
 }
 
-function adjustEffect(i) {
-  if (objects[i].fade > 0) {
-    objects[i].effect === effects.SMOKE ? objects[i].fade-- : objects[i].fade-= 10;
-    if (objects[i].effect === effects.EXPLOSION) { objects[i].size+= 7 }
+function adjustEffect(object) {
+  if (object.fade > 0) {
+    object.effect === effects.SMOKE ? object.fade-- : object.fade-= 10;
+    if (object.effect === effects.EXPLOSION) { object.size+= 7 }
   }
-  else { objects[i].end = true; }
+  else { object.end = true; }
 }
 
 function collide(a, b) {
@@ -478,8 +483,9 @@ function bump(a, b) {
           backup(a, b);
         }
         if (a.lives > 1) {
-            a.lives--;
-            return result;
+          playSound(sounds.HIT, a);
+          a.lives--;
+          return result;
           }
       } else if (a.type === types.LOOT) { giveLoot(b); }
     result.end = true;
@@ -544,7 +550,7 @@ function boost(object, dir) {
 
 function shield(object, end) {
   object.shield = end ? 0 : shieldTime;
-  playSound(sounds.SHIELD, object);
+  playSound((object.shield = end ? sounds.SHIELDHIT : sounds.SHIELD), object);
 }
 
 function drawArrow(object) {
