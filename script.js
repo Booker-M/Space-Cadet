@@ -1,4 +1,4 @@
-let newGame = true; //true
+let newGame = false; //true
 let gameStart, deathTime, waveTime, currentTime;
 
 const types = { STAR: 'Star', SHIP: 'Ship', PLANET: 'Planet', BULLET: 'Bullet', DEBRIS: 'Debris', LOOT: 'Loot', Effect: 'Effect'};
@@ -172,6 +172,7 @@ function refresh() {
   drawStars();
   flameFlicker();
   for (let i = 0; i < objects.length; i++) {
+    if (objects[i] === ship && ship.lives === 0) { continue; }
     if (objects[i].type === types.SHIP || objects[i].type === types.BULLET || objects[i].type === types.DEBRIS) {
       move(objects[i]);
       trackTarget(objects[i]);
@@ -179,15 +180,13 @@ function refresh() {
     if (outOfBounds(objects[i])) { fix(i); }
     checkSpeed(objects[i]);
     adjust(objects[i]);
-    if (objects[i] === ship && ship.lives === 0) { continue; }
-    else if (objects[i].end === true && endObject(i)) { i--; continue; }
+    if (objects[i].end === true && endObject(i)) { i--; continue; }
     for (let j = i + 1; j < objects.length; j++) {
       if (collision(objects[i], objects[j])) { collide(objects[i], objects[j]); }
       calcGravity(objects[i], objects[j]);
       lockTarget(objects[i], objects[j]);
       lockTarget(objects[j], objects[i]);
-      if (objects[j] === ship && ship.lives === 0) { continue; }
-      else if (objects[j].end === true && endObject(j)) { j--; continue; }
+      if (objects[j].end === true && endObject(j)) { j--; continue; }
     }
     drawObject(objects[i]);
   }
