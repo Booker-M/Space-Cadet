@@ -446,13 +446,17 @@ function collide(a, b) {
   let resultB = bump(b, a);
   if (resultA.end) {
     a.end = true;
-    if (b.type === types.SHIP) { b.kills++; }
-    if (b.type == types.BULLET && b.parent != null) { b.parent.kills++ }
+    if (a.type === types.SHIP) {
+      if (b.type === types.SHIP) { b.kills++; }
+      if (b.type == types.BULLET && b.parent != null) { b.parent.kills++ }
+    }
   }
   if (resultB.end) {
     b.end = true;
-    if (a.type === types.SHIP) { a.kills++; }
-    if (a.type == types.BULLET && a.parent != null) { a.parent.kills++ }
+    if (b.type === types.SHIP) {
+      if (a.type === types.SHIP) { a.kills++; }
+      if (a.type == types.BULLET && a.parent != null) { a.parent.kills++ }
+    }
   }
   if (resultA.shield) { shield(a, true); }
   if (resultB.shield) { shield(b, true); }
