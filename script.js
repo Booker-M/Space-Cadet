@@ -536,6 +536,7 @@ function endObject(i) {
 }
 
 function removeObject(i) {
+  if (objects[i] === ship) { console.log("Tried to remove ship"); return; }
   objects.splice(i, 1);
 }
 
@@ -679,6 +680,7 @@ function backup(a, b) {
     if (collision(a, objects[i])) { backup(a, objects[i]); }
   }
   if (a === ship) { generateStars(); }
+  if (a.type === types.SHIP) { a.boost = 0; }
 }
 
 function genStarCoords(object) {
