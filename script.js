@@ -1,4 +1,6 @@
-let newGame = true; //true
+//VARIABLES
+
+let newGame = false; //true
 let gameStart, deathTime, waveTime, currentTime;
 
 const types = { STAR: 'Star', SHIP: 'Ship', PLANET: 'Planet', BULLET: 'Bullet', DEBRIS: 'Debris', LOOT: 'Loot', Effect: 'Effect'};
@@ -8,7 +10,7 @@ let ship = {};
 let moveSpeed = 0.25, rotateSpeed = 0.3, boostSpeed = 10, friction = 0.996, spinFriction = 0.97, bulletSpeed = 13, gravConstant = 1/8, maxSpeed = 10, maxRotation = 10, multiplier;
 const totalStars = 300, starLayers = 10, totalPlanets = 6, totalLoot = 3;
 let bounds;
-let maxPlanetSize, minPlanetSize, shadeAngle;
+let maxPlanetSize, minPlanetSize, gravSize = 3, shadeAngle;
 let flameSize = 5, flameGrow = true;
 let stars = [], objects = [];
 let allies = 0, enemies = 0, wave = 0; //wave = 0
@@ -19,7 +21,7 @@ let lastKey = {up: false, down: false, left: false, right: false, bullet: false}
 let lastKeyTime = {up: 0, down: 0, left: 0, right: 0, bullet: 0};
 let delta = 150;
 
-let startTime, trackLength = 0.0;
+let musicStart, trackLength = 0.0;
 const music = [
   new Audio('http://soundimage.org/wp-content/uploads/2016/11/Automation.mp3')
 ];
@@ -35,6 +37,8 @@ const sounds = {
   VICTORY: new Audio('https://freesound.org/data/previews/138/138485_758593-lq.mp3')
 };
 
+//SETUP FUNCTIONS
+
 function setup() {
   noStroke();
   rectMode(CENTER);
@@ -42,13 +46,13 @@ function setup() {
 }
 
 function reset() {
-  startTime = new Date();
+  musicStart = new Date();
+  gameStart = new Date();
   allies = 0, enemies = 0;
   shadeAngle = PI+PI/5;
   ship = {type: types.SHIP, xPos: 0, yPos: 0, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: friction, spinFriction: spinFriction, maxSpeed: maxSpeed, maxRotation: maxRotation, size: width/30, color: randomColor(), end: false, wait: {bullet: new Date(), missile: new Date(), boost: new Date()}, flame: {back: false, left: false, right: false}, kills: 0, boost: 0, shield: 0, team: 1, lives: 3, lastHit: new Date()};
   objects = [ship];
   generateStars();
-  gameStart = new Date();
   if (!newGame) { generation(); }
 }
 
@@ -81,14 +85,36 @@ function playSound(sound, object) {
 }
 
 function playMusic() {
-  let timeDiff = currentTime - startTime;
+  let timeDiff = currentTime - musicStart;
   if (timeDiff > trackLength) {
     let i = parseInt(Math.random()*music.length);
     trackLength = music[i].duration;
     music[i].play();
-    startTime = new Date();
+    musicStart = new Date();
   }
 }
+
+function randomColor() {
+  let min = [0,0,0];
+  min[parseInt(Math.random()*3)] = 50;
+  return [min[0]+Math.random()*200, min[1]+Math.random()*200, min[2]+Math.random()*200];
+}
+
+function newWave() {
+  playSound(sounds.VICTORY, ship);
+  wave++;
+  let totalShips = 1 + 2 * wave;
+  let teams = totalShips - 1;
+  while (totalShips % teams !== 0) { teams--; }
+  if (teams === 1) { teams = totalShips; }
+  let teamSize = totalShips/teams;
+  for (t = 1; t <= teams; t++) {
+    generateShips(teamSize - (t===ship.team ? 1 : 0), t, t===ship.team ? ship.color : randomColor());
+  }
+  waveTime = new Date();
+}
+
+//MAIN LOOP
 
 function draw() {
   currentTime = new Date();
@@ -98,6 +124,8 @@ function draw() {
   drawUI();
   playMusic();
 }
+
+//CONTROLS
 
 function keys() {
   if (ship.lives === 0) {
@@ -167,6 +195,8 @@ function keys() {
   }
 }
 
+//REFRESH OBJECTS
+
 function refresh() {
   if (!newGame && ship.lives > 0 && enemies === 0) { newWave(); }
   drawStars();
@@ -191,6 +221,8 @@ function refresh() {
     drawObject(objects[i]);
   }
 }
+
+//UI
 
 function drawUI() {
   resetMatrix();
@@ -297,6 +329,8 @@ function tutorial() {
   }
 }
 
+//OBJECT FUNCTIONS
+
 function move(object) {
   object.dVel = object.dVel * object.spinFriction;
   object.xVel = object.xVel * object.friction;
@@ -340,11 +374,6 @@ function accelerate(object, amount, dir = object.dir) {
   }
 }
 
-function checkDir(dir) {
-  if (Math.abs(dir) > PI) { dir-= Math.sign(dir)*2*PI; }
-  return dir;
-}
-
 function spin(object, amount) {
   object.dVel += amount;
   if (Math.abs(object.dVel) > object.maxRotation) {
@@ -371,6 +400,18 @@ function getDistance(a, b) {
   return Math.sqrt(Math.pow(a.xPos - b.xPos, 2) + Math.pow(a.yPos - b.yPos, 2)) - a.size/2 - b.size/2;
 }
 
+function getGravDistance(a, b) {
+  return Math.sqrt(Math.pow(a.xPos - b.xPos, 2) + Math.pow(a.yPos - b.yPos, 2)) - (minGravDistance(a, b));
+}
+
+function getGravSize(object) {
+  return (object.type === types.PLANET ? gravSize : 1)*object.size;
+}
+
+function minGravDistance(a, b) {
+  return (getGravSize(a) + getGravSize(b))/2;
+}
+
 function getSpeed(a, b) {
   return Math.sqrt(Math.pow(a.xVel, 2) + Math.pow(a.yVel, 2));
 }
@@ -387,7 +428,14 @@ function dirDiff(dir1, dir2) {
   return checkDir(dir1 - dir2);
 }
 
-function collision(a, b) {
+function checkDir(dir) {
+  if (Math.abs(dir) > PI) { dir-= Math.sign(dir)*2*PI; }
+  return dir;
+}
+
+function collision(a, b, checkGrav = false) {
+  if (a === b) { return false; }
+  if (checkGrav) { return getGravDistance(a, b) <= 0; }
   return getDistance(a, b) <= 0;
 }
 
@@ -557,34 +605,6 @@ function shield(object, end) {
   playSound((end ? sounds.SHIELDHIT : sounds.SHIELD), object);
 }
 
-function drawArrow(object) {
-  if (object.type !== types.PLANET && object.type !== types.SHIP) { return; }
-  a = getArrow(object);
-  fill(object.color[0], object.color[1], object.color[2], 255*(bounds-getDistance(ship, object))/bounds);
-  translate(a.xPos, a.yPos);
-  rotate(a.dir);
-  if ( object.type === types.SHIP) { triangle(10, 10, 10, -10, -10, 0); }
-  if ( object.type === types.PLANET) { ellipse(0, 0, 20); }
-}
-
-function getArrow(object) {
-  let a = {xPos: object.xPos, yPos: object.yPos, dir: 0};
-  if (a.xPos > width/2 - 20 + ship.xPos) { a.xPos = width - 20; }
-  else if (a.xPos < -width/2 + 20 + ship.xPos) { a.xPos = 20; }
-  else { a.xPos += -ship.xPos + width/2; }
-  if (a.yPos > height/2 - 20 + ship.yPos) { a.yPos = height - 20; }
-  else if (a.yPos < -height/2 + 20 + ship.yPos) { a.yPos = 20; }
-  else { a.yPos += -ship.yPos + height/2; }
-  a.dir = getDir(object, ship);
-  return a;
-}
-
-function randomColor() {
-  let min = [0,0,0];
-  min[parseInt(Math.random()*3)] = 50;
-  return [min[0]+Math.random()*200, min[1]+Math.random()*200, min[2]+Math.random()*200];
-}
-
 function lockTarget(a, b) {
   if ((a.type !== types.SHIP || a===ship) && (a.type !== types.BULLET || !a.missile || a.parent===b) || (b.parent != null && b.parent === a)) { return; }
   if (a.target != null && ((a.target === ship && ship.lives === 0) || a.target.end || (a.target.type !== types.PLANET && getDistance(a, a.target) > width) || (a.target.type === types.PLANET && getDistance(a, a.target) > a.target.size))) { a.target = null; }
@@ -646,9 +666,8 @@ function calcGravity(a, b) {
     if (b.type === types.PLANET) { temp = a; a = b; b = temp; }
     else { return; }
   }
-  let distance = getDistance(a, b);
-  if (distance < a.size*3) {
-    let gravity = (a.size/(distance*2 + a.size))*gravConstant;
+  if (collision(a, b, true)) {
+    let gravity = ((minGravDistance(a, b) - getDistance(a, b))/minGravDistance(a, b))*gravConstant;
     let direction = getDir(b, a);
     accelerate(b, gravity, direction);
     let velDir = getVelDir(b);
@@ -660,35 +679,52 @@ function calcGravity(a, b) {
 function genCoords(object) {
   let size = object.size;
   let xOrY = parseInt(Math.random()+0.5);
-  object.xPos = Math.sign(Math.random()-0.5) * (Math.random()*bounds + (width + (object.type === types.PLANET ? size*6 : size))*xOrY)/2 + ship.xPos;
-  object.yPos = Math.sign(Math.random()-0.5) * (Math.random()*bounds + (height + (object.type === types.PLANET ? size*6 : size))*(1-xOrY))/2 + ship.yPos;
+  object.xPos = Math.sign(Math.random()-0.5) * (Math.random()*bounds + (width + getGravSize(object))*xOrY)/2 + ship.xPos;
+  object.yPos = Math.sign(Math.random()-0.5) * (Math.random()*bounds + (height + getGravSize(object))*(1-xOrY))/2 + ship.yPos;
   for (i = 0; i < objects.length; i++) {
-    if (object === objects[i]) { i++; }
-    if (collision(object, objects[i])) { backup(object, objects[i]); }
+    if (collision(object, objects[i], true)) { backup(object, objects[i]); }
   }
   if (object === ship) { generateStars(); }
 }
 
 function backup(a, b) {
   let angle = getDir(b, a);
-  let distance = Math.max(a.size*3, b.size*3) + a.size/2 + b.size/2;
+  let distance = minGravDistance(a, b) + 1;
   a.xPos = -Math.cos(angle)*distance;
   a.yPos = -Math.sin(angle)*distance;
   if (a.type === types.SHIP) { a.dir = angle; }
   for (i = 0; i < objects.length; i++) {
-    if (a === objects[i]) { i++; }
-    if (collision(a, objects[i])) { backup(a, objects[i]); }
+    if (collision(a, objects[i], true)) { backup(a, objects[i]); }
   }
   if (a === ship) { generateStars(); }
   if (a.type === types.SHIP) { a.boost = 0; }
 }
 
-function genStarCoords(object) {
-  let size = object.size;
-  let xOrY = parseInt(Math.random()+0.5);
-  object.xPos = (Math.sign(Math.random()-0.5) * (Math.random()*width + (width + size)*xOrY)/2)*object.layer + ship.xPos;
-  object.yPos = (Math.sign(Math.random()-0.5) * (Math.random()*height + (height + size)*(1-xOrY))/2)*object.layer + ship.yPos;
+//OBJECT INDICATORS
+
+function drawArrow(object) {
+  if (object.type !== types.PLANET && object.type !== types.SHIP) { return; }
+  a = getArrow(object);
+  fill(object.color[0], object.color[1], object.color[2], 255*(bounds-getDistance(ship, object))/bounds);
+  translate(a.xPos, a.yPos);
+  rotate(a.dir);
+  if ( object.type === types.SHIP) { triangle(10, 10, 10, -10, -10, 0); }
+  if ( object.type === types.PLANET) { ellipse(0, 0, 20); }
 }
+
+function getArrow(object) {
+  let a = {xPos: object.xPos, yPos: object.yPos, dir: 0};
+  if (a.xPos > width/2 - 20 + ship.xPos) { a.xPos = width - 20; }
+  else if (a.xPos < -width/2 + 20 + ship.xPos) { a.xPos = 20; }
+  else { a.xPos += -ship.xPos + width/2; }
+  if (a.yPos > height/2 - 20 + ship.yPos) { a.yPos = height - 20; }
+  else if (a.yPos < -height/2 + 20 + ship.yPos) { a.yPos = 20; }
+  else { a.yPos += -ship.yPos + height/2; }
+  a.dir = getDir(object, ship);
+  return a;
+}
+
+//STARS
 
 function generateStars() {
   stars = [];
@@ -704,6 +740,13 @@ function genStar(layer) {
   let yPos = Math.sign(Math.random()-0.5) * (Math.random()*height - size/2)*layer + ship.yPos;
   newStar = {type: types.STAR, xPos: xPos, yPos: yPos, dir: 0, size: size, color: (200), layer: layer};
   return newStar;
+}
+
+function genStarCoords(object) {
+  let size = object.size;
+  let xOrY = parseInt(Math.random()+0.5);
+  object.xPos = (Math.sign(Math.random()-0.5) * (Math.random()*width + (width + size)*xOrY)/2)*object.layer + ship.xPos;
+  object.yPos = (Math.sign(Math.random()-0.5) * (Math.random()*height + (height + size)*(1-xOrY))/2)*object.layer + ship.yPos;
 }
 
 function drawStars() {
@@ -725,6 +768,8 @@ function drawStar(object) {
   fill(object.color, 200);
   ellipse(0, 0, size, size);
 }
+
+//SHIPS
 
 function generateShips(number, team, color) {
   for (let i=0; i < number; i++) {
@@ -761,6 +806,27 @@ function drawShip(object) {
   else if (object.shield > 0) { drawShield(object); }
 }
 
+function drawBoost(object) {
+  resetMatrix();
+  translate(object.xPos - ship.xPos + width/2, object.yPos - ship.yPos + height/2);
+  rotate(getVelDir(object));
+  fill(0, 160, 255, 110-flameSize);
+  let size = object.size;
+  ellipse(-10, 0, flameSize + size*2.3, flameSize + size*1.3);
+  if (flameSize === 10 || flameSize === 7.5 || flameSize === 5) {
+    genSmoke(object);
+    genBlur(object);
+  }
+}
+
+function drawShield(object) {
+  fill(255, 0, 255, 60-flameSize);
+  let size = object.size;
+  ellipse(-3, 0, flameSize + size*1.7, flameSize + size*1.3);
+}
+
+//FLAMES
+
 function drawFlames(object) {
   fill(255, 0, 0, 200-flameSize);
   let size = object.size;
@@ -787,24 +853,7 @@ function flameFlicker() {
     }
 }
 
-function drawBoost(object) {
-  resetMatrix();
-  translate(object.xPos - ship.xPos + width/2, object.yPos - ship.yPos + height/2);
-  rotate(getVelDir(object));
-  fill(0, 160, 255, 110-flameSize);
-  let size = object.size;
-  ellipse(-10, 0, flameSize + size*2.3, flameSize + size*1.3);
-  if (flameSize === 10 || flameSize === 7.5 || flameSize === 5) {
-    genSmoke(object);
-    genBlur(object);
-  }
-}
-
-function drawShield(object) {
-  fill(255, 0, 255, 60-flameSize);
-  let size = object.size;
-  ellipse(-3, 0, flameSize + size*1.7, flameSize + size*1.3);
-}
+//PLANETS
 
 function generatePlanets() {
   for (let i=0; i < totalPlanets; i++) {
@@ -827,18 +876,19 @@ function genPlanet() {
 
 function generateCraters(object) {
   object.craters = [];
-  for (i = 0; i < 5 + parseInt(object.size/200); i++) { object.craters[i] = genCrater(object); }
+  for (i = 0; i < 5 + parseInt(object.size/200); i++) { genCrater(object); }
 }
 
-function genCrater(object) {
+function genCrater(object, attempt = 1) {
+  if (attempt > 5) { return; }
   size = Math.random()*object.size/5 + object.size/15;
   dir = Math.random()*2*PI - PI;
   distance = Math.random()*((dir > shadeAngle - PI || dir < shadeAngle - 2*PI) ? object.size/4 : (object.size/2 - size/2));
   newCrater = {xPos: Math.cos(dir)*distance, yPos: Math.sin(dir)*distance, size: size};
   for (i = 0; i < object.craters.length; i++) {
-    if (collision(newCrater, object.craters[i])) { return genCrater(object); }
+    if (collision(newCrater, object.craters[i])) { genCrater(object, attempt++); }
   }
-  return newCrater;
+  object.craters.push(newCrater);
 }
 
 function makeCrater(a, b) {
@@ -999,6 +1049,8 @@ function drawGas(object) {
   arc(0, 0, object.size, object.size, object.gas.angle8, object.gas.angle7, CHORD);
 }
 
+//BULLETS
+
 function fireBullet(object, missile) {
   let speed = bulletSpeed;
   object.wait.bullet = new Date();
@@ -1026,6 +1078,8 @@ function drawBullet(object) {
   } else { ellipse(0, 0, object.size, object.size); }
 }
 
+//LOOT
+
 function generateLoot() {
   for (let i=0; i < totalLoot; i++) {
    objects.push(genLoot());
@@ -1048,6 +1102,8 @@ function drawLoot(object) {
   rect(0, 0, object.size, object.size/20);
   rect(0, 0, object.size/25, object.size);
 }
+
+//DEBRIS
 
 function genDebris(object) {
   let size = object.size/4;
@@ -1072,6 +1128,8 @@ function drawDebris(object) {
     rect(0, 0, size, size);
   }
 }
+
+//EFFECTS
 
 function genBlur(object) {
   let newBlur = {type: types.EFFECT, effect: effects.BLUR, xPos: object.xPos, yPos: object.yPos, dir: object.dir, xVel: 0, yVel: 0, dVel: 0, friction: 0, spinFriction: 0, maxSpeed: 0, maxRotation: 0, size: object.size, color: object.color, end: false, fade: 250};
@@ -1117,18 +1175,4 @@ function genExplosion(object) {
 function drawExplosion(object) {
   fill(200, 0, 0, object.fade);
   ellipse(0, 0, object.size);
-}
-
-function newWave() {
-  playSound(sounds.VICTORY, ship);
-  wave++;
-  let totalShips = 1 + 2 * wave;
-  let teams = totalShips - 1;
-  while (totalShips % teams !== 0) { teams--; }
-  if (teams === 1) { teams = totalShips; }
-  let teamSize = totalShips/teams;
-  for (t = 1; t <= teams; t++) {
-    generateShips(teamSize - (t===ship.team ? 1 : 0), t, t===ship.team ? ship.color : randomColor());
-  }
-  waveTime = new Date();
 }
