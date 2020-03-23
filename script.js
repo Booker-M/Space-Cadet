@@ -5,7 +5,7 @@ const types = { STAR: 'Star', SHIP: 'Ship', PLANET: 'Planet', BULLET: 'Bullet', 
 const effects = { BLUR: 'Blur', SMOKE: 'Smoke', EXPLOSION: 'Explosion'};
 const planetStyles = ['Crater', 'Water', 'Gas'];
 let ship = {};
-let moveSpeed = 0.25, rotateSpeed = 0.3, boostSpeed = 10, friction = 0.996, spinFriction = 0.97, bulletSpeed = 13, gravConstant = 1/7, maxSpeed = 10, maxRotation = 10, multiplier;
+let moveSpeed = 0.25, rotateSpeed = 0.3, boostSpeed = 10, friction = 0.996, spinFriction = 0.97, bulletSpeed = 13, gravConstant = 1/8, maxSpeed = 10, maxRotation = 10, multiplier;
 const totalStars = 300, starLayers = 10, totalPlanets = 6, totalLoot = 3;
 let bounds;
 let maxPlanetSize, minPlanetSize, shadeAngle;
@@ -447,12 +447,12 @@ function collide(a, b) {
   if (resultA.end) {
     a.end = true;
     if (b.type === types.SHIP) { b.kills++; }
-    if (b.type == types.BULLET) { b.parent.kills++ }
+    if (b.type == types.BULLET && b.parent != null) { b.parent.kills++ }
   }
   if (resultB.end) {
     b.end = true;
     if (a.type === types.SHIP) { a.kills++; }
-    if (a.type == types.BULLET) { a.parent.kills++ }
+    if (a.type == types.BULLET && a.parent != null) { a.parent.kills++ }
   }
   if (resultA.shield) { shield(a, true); }
   if (resultB.shield) { shield(b, true); }
@@ -461,12 +461,12 @@ function collide(a, b) {
 }
 
 function bump(a, b) {
-  let result = {end: false, shield: false, hit: false}
+  let result = {end: false, shield: false, hit: false};
   if (b.type === types.PLANET) {
     a.xVel = 0;
     a.yVel = 0;
     a.dVel = 0;
-  } else if (b.type === types.SHIP && currentTime - b.lastHit < hitDelay) { return result; }
+  } else if (b.type === types.SHIP && b.boost === 0 && currentTime - b.lastHit < hitDelay) { return result; }
   if (a.type !== types.PLANET) {
       if (a.type === types.SHIP) {
         if (b.type === types.LOOT) { return result; }
@@ -485,7 +485,7 @@ function bump(a, b) {
           playSound(sounds.HIT, a);
           a.lives--;
           return result;
-          }
+        }
       } else if (a.type === types.LOOT) { giveLoot(b); }
     result.end = true;
     } else if (a.style === "Crater") {
@@ -495,7 +495,7 @@ function bump(a, b) {
 }
 
 function giveLoot(object) {
-  if ((object===ship || object.type===types.BULLET && object.parent===ship) && ship.lives <= 10 && Math.random() < 0.3) {
+  if ((object===ship || object.type===types.BULLET && object.parent===ship) && ship.lives <= 10 && Math.random() < 0.2) {
     playSound(sounds.LIFE, object);
     ship.lives++;
     return;
@@ -549,7 +549,7 @@ function boost(object, dir) {
 
 function shield(object, end) {
   object.shield = end ? 0 : shieldTime;
-  playSound((object.shield = end ? sounds.SHIELDHIT : sounds.SHIELD), object);
+  playSound((end ? sounds.SHIELDHIT : sounds.SHIELD), object);
 }
 
 function drawArrow(object) {
