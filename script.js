@@ -70,7 +70,7 @@ function windowResized() {
 }
 
 function adjustSize() {
-  bounds = 480*10 + width;
+  bounds = 480*12 + width;
   maxPlanetSize = width;
   minPlanetSize = width/4;
   multiplier = width/960;
