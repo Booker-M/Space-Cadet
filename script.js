@@ -1,29 +1,28 @@
 //VARIABLES
 
-let newGame = true; //true
+let newGame = false; //true
 let gameStart, deathTime, waveTime, currentTime;
-
+let bounds;
 const types = { STAR: 'Star', SHIP: 'Ship', PLANET: 'Planet', BULLET: 'Bullet', DEBRIS: 'Debris', LOOT: 'Loot', Effect: 'Effect'};
 const effects = { BLUR: 'Blur', SMOKE: 'Smoke', EXPLOSION: 'Explosion'};
-const planetStyles = ['Crater', 'Water', 'Gas'];
-let ship = {};
-let moveSpeed = 0.25, rotateSpeed = 0.3, boostSpeed = 10, friction = 0.996, spinFriction = 0.97, bulletSpeed = 13, gravConstant = 1/8, maxSpeed = 10, maxRotation = 10, multiplier;
-const totalStars = 300, starLayers = 10, totalPlanets = 6, totalLoot = 3;
-let bounds;
-let maxPlanetSize, minPlanetSize, gravSize = 3, shadeAngle;
+const planetStyles = ['Crater', 'Gas'];
+let ship = {}, multiplier;
+const moveSpeed = 0.25, rotateSpeed = 0.3, boostSpeed = 10, friction = 0.996, spinFriction = 0.97, bulletSpeed = 13, maxSpeed = 10, maxRotation = 10, gravSize = 3, gravConstant = 1/8;
+const totalStars = 400, starLayers = 10, totalPlanets = 6, totalLoot = 3;
+let maxPlanetSize, minPlanetSize, shadeAngle;
 let flameSize = 5, flameGrow = true;
 let stars = [], objects = [];
 let allies = 0, enemies = 0, wave = 0; //wave = 0
-let boostTime = 50, shieldTime = 2500, textTime = 5000;
+const boostTime = 50, shieldTime = 2500, textTime = 5000;
 let bulletWait = 250, missileWait = 250*15, boostWait = 250*15, hitDelay = 250*10;
 
 let lastKey = {up: false, down: false, left: false, right: false, bullet: false};
 let lastKeyTime = {up: 0, down: 0, left: 0, right: 0, bullet: 0};
-let delta = 150;
+const delta = 150;
 
-let musicStart, trackLength = 0.0;
+let musicStart, trackLength;
 const music = [
-  new Audio('http://soundimage.org/wp-content/uploads/2016/11/Automation.mp3')
+  new Audio('https://soundimage.org/wp-content/uploads/2016/11/Automation.mp3')
 ];
 const sounds = {
   SHOOT: new Audio('https://freesound.org/data/previews/459/459145_6142149-lq.mp3'),
@@ -42,15 +41,26 @@ const sounds = {
 function setup() {
   noStroke();
   rectMode(CENTER);
-  windowResized();
+  createCanvas(Math.max(windowWidth - 20, 480), Math.max(windowHeight - 20, 320));
+  adjustSizes();
+  reset();
+}
+
+function adjustSizes() {
+  bounds = 480*10 + width;
+  maxPlanetSize = width;
+  minPlanetSize = width/4;
+  multiplier = width/960;
+  ship.size = width/30;
 }
 
 function reset() {
-  musicStart = new Date();
   gameStart = new Date();
+  musicStart = new Date();
+  trackLength = -1
   allies = 0, enemies = 0;
   shadeAngle = PI+PI/5;
-  ship = {type: types.SHIP, xPos: 0, yPos: 0, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: friction, spinFriction: spinFriction, maxSpeed: maxSpeed, maxRotation: maxRotation, size: width/30, color: randomColor(), end: false, wait: {bullet: new Date(), missile: new Date(), boost: new Date()}, flame: {back: false, left: false, right: false}, kills: 0, boost: 0, shield: 0, team: 1, lives: 3, lastHit: new Date()};
+  ship = {type: types.SHIP, xPos: 0, yPos: 0, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: friction, spinFriction: spinFriction, maxSpeed: maxSpeed, maxRotation: maxRotation, size: ship.size, color: randomColor(), end: false, wait: {bullet: new Date(), missile: new Date(), boost: new Date()}, flame: {back: false, left: false, right: false}, kills: 0, boost: 0, shield: 0, team: 1, lives: 3, lastHit: new Date()};
   objects = [ship];
   generateStars();
   if (!newGame) { generation(); }
@@ -63,18 +73,11 @@ function generation() {
   newWave();
 }
 
-function windowResized() {
-  resizeCanvas(Math.max(windowWidth - 20, 480), Math.max(windowHeight - 20, 320));
-  adjustSize();
-  reset();
-}
-
-function adjustSize() {
-  bounds = 480*12 + width;
-  maxPlanetSize = width;
-  minPlanetSize = width/4;
-  multiplier = width/960;
-}
+// function windowResized() {
+//   resizeCanvas(Math.max(windowWidth - 20, 480), Math.max(windowHeight - 20, 320));
+//   adjustSizes();
+//   reset();
+// }
 
 function playSound(sound, object) {
   distance = Math.max(0, getDistance(object, ship));
@@ -682,7 +685,7 @@ function genCoords(object) {
   object.xPos = Math.sign(Math.random()-0.5) * (Math.random()*bounds + (width + getGravSize(object))*xOrY)/2 + ship.xPos;
   object.yPos = Math.sign(Math.random()-0.5) * (Math.random()*bounds + (height + getGravSize(object))*(1-xOrY))/2 + ship.yPos;
   for (i = 0; i < objects.length; i++) {
-    if (collision(object, objects[i], true)) { backup(object, objects[i]); }
+    if (collision(object, objects[i], true)) { return backup(object, objects[i]); }
   }
   if (object === ship) { generateStars(); }
 }
@@ -690,14 +693,18 @@ function genCoords(object) {
 function backup(a, b) {
   let angle = getDir(b, a);
   let distance = minGravDistance(a, b) + 1;
-  a.xPos = -Math.cos(angle)*distance;
-  a.yPos = -Math.sin(angle)*distance;
+  a.xPos = b.xPos + Math.cos(angle)*distance;
+  a.yPos = b.yPos + Math.sin(angle)*distance;
   if (a.type === types.SHIP) { a.dir = angle; }
   for (i = 0; i < objects.length; i++) {
-    if (collision(a, objects[i], true)) { backup(a, objects[i]); }
+    if (collision(a, objects[i], true)) {
+      distance = (minGravDistance(a, b) + minGravDistance(a, objects[i]))/2;
+      a.xPos = b.xPos + Math.cos(angle)*distance;
+      a.yPos = b.yPos + Math.sin(angle)*distance;
+    }
   }
   if (a === ship) { generateStars(); }
-  if (a.type === types.SHIP) { a.boost = 0; }
+  if (a.type === types.SHIP) { a.boost = 0; a.xVel = 0; a.yVel = 0; a.dVel = 0; }
 }
 
 //OBJECT INDICATORS
@@ -735,7 +742,7 @@ function generateStars() {
 }
 
 function genStar(layer) {
-  size = width/250 + Math.random();
+  size = width/250 + Math.random()*2;
   let xPos = Math.sign(Math.random()-0.5) * (Math.random()*width - size/2)*layer + ship.xPos;
   let yPos = Math.sign(Math.random()-0.5) * (Math.random()*height - size/2)*layer + ship.yPos;
   newStar = {type: types.STAR, xPos: xPos, yPos: yPos, dir: 0, size: size, color: (200), layer: layer};
@@ -886,7 +893,7 @@ function genCrater(object, attempt = 1) {
   distance = Math.random()*((dir > shadeAngle - PI || dir < shadeAngle - 2*PI) ? object.size/4 : (object.size/2 - size/2));
   newCrater = {xPos: Math.cos(dir)*distance, yPos: Math.sin(dir)*distance, size: size};
   for (i = 0; i < object.craters.length; i++) {
-    if (collision(newCrater, object.craters[i])) { genCrater(object, attempt++); }
+    if (collision(newCrater, object.craters[i])) { return genCrater(object, attempt++); }
   }
   object.craters.push(newCrater);
 }
@@ -940,13 +947,13 @@ function gasCoords(object) {
   radius = Math.random()*object.size/2*0.9;
   let p5 = [radius*Math.cos(pivot), radius*Math.sin(pivot)];
   pivot = angle5 + Math.random()*(PI/2 - angle5);
-  radius = radius + Math.random()*(object.size/2 - radius);
+  radius = radius + Math.random()*(object.size/2*0.9 - radius);
   let p8 = [radius*Math.cos(pivot), radius*Math.sin(pivot)];
   pivot = angle7 + Math.random()*(PI/2 - angle7);
   radius = Math.random()*object.size/2*0.9;
   let p6 = [radius*Math.cos(pivot), radius*Math.sin(pivot)];
   pivot = angle8 + Math.random()*(PI/2 - angle8);
-  radius = radius + Math.random()*(object.size/2 - radius);
+  radius = radius + Math.random()*(object.size/2*0.9 - radius);
   let p7 = [radius*Math.cos(pivot), radius*Math.sin(pivot)];
   
   object.gas = {a: a, b: b, c: c, d: d, e: e, f: f, g: g, h: h, p1: p1, p2: p2, p3: p3, p4: p4, p5: p5, p6: p6, p7: p7, p8: p8, angle1: angle1, angle2: angle2, angle3: angle3, angle4: angle4, angle5: angle5, angle6: angle6, angle7: angle7, angle8: angle8};
