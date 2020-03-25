@@ -13,8 +13,8 @@ let maxPlanetSize, minPlanetSize, shadeAngle;
 let flameSize = 5, flameGrow = true;
 let stars = [], objects = [];
 let allies = 0, enemies = 0, wave = 0; //wave = 0
-const boostTime = 50, shieldTime = 2500, textTime = 5000;
-const bulletWait = 250, missileWait = 250*15, boostWait = 250*15, hitDelay = 250*10, CPUwait = 4, CPUgap = 8;
+const textTime = 1000*5, boostTime = 1000, shieldTime = 1000*15, missileTime = 1000*15, hitTime = 1000*3;
+const bulletWait = 1000/4, missileWait = 1000*4, boostWait = 1000*4, CPUwait = 4, CPUgap = 8;
 
 let lastKey = {up: false, down: false, left: false, right: false, bullet: false};
 let lastKeyTime = {up: 0, down: 0, left: 0, right: 0, bullet: 0};
@@ -61,7 +61,7 @@ function reset() {
   trackLength = -1
   allies = 0, enemies = 0;
   shadeAngle = PI+PI/5;
-  ship = {type: types.SHIP, xPos: 0, yPos: 0, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: friction, spinFriction: spinFriction, maxSpeed: maxSpeed, maxRotation: maxRotation, size: ship.size, color: randomColor(), end: false, wait: {bullet: new Date(), missile: new Date(), boost: new Date()}, flame: {back: false, left: false, right: false}, kills: 0, boost: 0, shield: 0, team: 1, lives: 3, lastHit: new Date()};
+  ship = {type: types.SHIP, xPos: 0, yPos: 0, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: friction, spinFriction: spinFriction, maxSpeed: maxSpeed, maxRotation: maxRotation, size: ship.size, color: randomColor(), end: false, wait: {bullet: new Date(), missile: new Date(), boost: new Date()}, time: {boost: null, shield: null, hit: new Date()}, flame: {back: false, left: false, right: false}, kills: 0, team: 1, lives: 3};
   objects = [ship];
   generateStars();
   if (!newGame) { generation(); }
@@ -73,12 +73,6 @@ function generation() {
   wave--;
   newWave();
 }
-
-// function windowResized() {
-//   resizeCanvas(Math.max(windowWidth - 20, 480), Math.max(windowHeight - 20, 320));
-//   adjustSizes();
-//   reset();
-// }
 
 function playSound(sound, object) {
   distance = Math.max(0, getDistance(object, ship));
@@ -476,14 +470,8 @@ function checkSpeed(object) {
 }
 
 function adjust(object) {
-  if (object.type === types.SHIP) { adjustShip(object); }
   if (object.type === types.EFFECT) { adjustEffect(object); }
-}
-
-function adjustShip(object) {
-  if (object.boost > 0) { object.boost--; }
-  if (object.shield > 1) { object.shield -= object===ship ? 1 : CPUwait; }
-  else if (object.shield === 1) { shield(object, true); }
+  if (object.type === types.BULLET && object.missile) { adjustMissile(object); }
 }
 
 function adjustEffect(object) {
@@ -492,6 +480,10 @@ function adjustEffect(object) {
     if (object.effect === effects.EXPLOSION) { object.size+= 7 }
   }
   else { object.end = true; }
+}
+
+function adjustMissile(object) {
+  if (currentTime - missileTime > object.time) { object.end = true; }
 }
 
 function collide(a, b) {
@@ -531,18 +523,20 @@ function bump(a, b) {
     a.yVel = 0;
     a.dVel = 0;
   }
+  if (b.type === types.LOOT || b.type === types.DEBRIS) { return result; }
   if (a.type !== types.PLANET) {
       if (a.type === types.SHIP) {
-        if (b.type === types.LOOT || b.type === types.DEBRIS) { return result; }
         if (b.type === types.SHIP) {
-          if (a.boost === 0 && b.boost === 0) { result.backup = true; }
-          if ((b.boost === 0 && currentTime - b.lastHit < hitDelay) || (!teamAttack && a.team !== 0 && a.team === b.team)) { return result; }
+          if (!isBoost(b)) {
+              if (!isBoost(a)) { result.backup = true; }
+              if (isHit(b)) { return result; }
+          }
         }
-        if (!teamAttack && b.type === types.BULLET && a.team !== 0 && a.team === b.parent.team) { return result; }
+        if (onTeam(a, b)) { return result; }
         if (b.type !== types.PLANET) {
-          if (currentTime - a.lastHit < hitDelay || a.boost > 0) { return result; }
+          if (isHit(a) || isBoost(a)) { return result; }
           result.hit = true;
-          if (a.shield > 0) {
+          if (isShield(a)) {
             result.shield = true;
             return result;
           }
@@ -563,14 +557,24 @@ function bump(a, b) {
   return result;
 }
 
+function onTeam(a, b) {
+  if (a.type === types.BULLET && b.type === types.SHIP) { return onTeam(b, a); }
+  if (a.type !== types.SHIP || (b.type !== types.SHIP && b.type !== types.BULLET)) { return false; }
+  return !teamAttack && a.team !== 0 && a.team === (b.type === types.BULLET ? b.parent.team : b.team);
+}
+
+function isHit(object) {
+  return currentTime - object.time.hit < hitTime;
+}
+
 function giveLoot(object) {
   if ((object===ship || object.type===types.BULLET && object.parent===ship) && ship.lives <= 10 && Math.random() < 0.2) {
     playSound(sounds.LIFE, object);
     ship.lives++;
     return;
   }
-  if (object.type === types.SHIP) { shield(object, false); }
-  if (object.type === types.BULLET) { shield(object.parent, false); }
+  if (object.type === types.SHIP) { shield(object); }
+  if (object.type === types.BULLET) { shield(object.parent); }
 }
 
 function endObject(i) {
@@ -614,13 +618,25 @@ function boost(object, dir) {
   pivot = checkDir(pivot);
   accelerate(object, boostSpeed, pivot);
   playSound(sounds.BOOST, object);
-  object.boost = boostTime;
+  object.time.boost = new Date();
   object.wait.boost = new Date();
 }
 
-function shield(object, end) {
-  object.shield = end ? 0 : shieldTime;
+function isBoost(object) {
+  return currentTime - object.time.boost < boostTime;
+}
+
+function stopBoost(object) {
+  object.time.boost -= boostTime;
+}
+
+function shield(object, end = false) {
+  end ? object.time.shield -= shieldTime : object.time.shield = new Date();
   playSound((end ? sounds.SHIELDHIT : sounds.SHIELD), object);
+}
+
+function isShield(object) {
+  return currentTime - object.time.shield < shieldTime/(object.type !== ship ? CPUwait : 1);
 }
 
 function lockTarget(a, b) {
@@ -713,14 +729,14 @@ function genCoords(object) {
 }
 
 function backup(a, b, both = false, start = 0) {
-  // if (Math.abs(start) > 2*PI) { return genCoords(a); }
+  if (Math.abs(start) >= 2*PI) { return genCoords(a); }
   let angle = (start === 0) ? getDir(b, a) : checkDir(start);
   let distance = (both ? getGravSize(a) : minGravDistance(a, b)) + 1;
   a.xPos = b.xPos + Math.cos(angle)*distance;
   a.yPos = b.yPos + Math.sin(angle)*distance;
   if (a.type === types.SHIP) {
     if (b.type === types.PLANET) {
-      a.boost = 0;
+      stopBoost(a);
       a.dir = angle, a.xVel = 0, a.yVel = 0, a.dVel = 0;
     }
     else { 
@@ -737,7 +753,6 @@ function backup(a, b, both = false, start = 0) {
       }
     }
   }
-  // if (a === ship) { generateStars(); }
 }
 
 //OBJECT INDICATORS
@@ -819,7 +834,7 @@ function generateShips(number, team, color) {
 
 function genShip(team = 0, color = randomColor(), lives = 1) {
   let size = ship.size;
-  let newShip = {type: types.SHIP, xPos: 0, yPos: 0, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: friction, spinFriction: spinFriction, maxSpeed: maxSpeed, maxRotation: maxRotation, size: size, color: color, end: false, wait: {bullet: new Date(), missile: new Date(), boost: new Date()}, flame: {back: false, left: false, right: false}, kills: 0, boost: 0, shield: 0, target: null, team: team, lives: lives, lastHit: new Date()};
+  let newShip = {type: types.SHIP, xPos: 0, yPos: 0, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: friction, spinFriction: spinFriction, maxSpeed: maxSpeed, maxRotation: maxRotation, size: size, color: color, end: false, wait: {bullet: new Date(), missile: new Date(), boost: new Date()}, time: {boost: null, shield: null, hit: new Date()}, flame: {back: false, left: false, right: false}, kills: 0, target: null, team: team, lives: lives};
   genCoords(newShip);
   newShip.dir = getDir(newShip, ship);
  (team === ship.team) ? allies++ : enemies++;
@@ -827,7 +842,7 @@ function genShip(team = 0, color = randomColor(), lives = 1) {
 }
 
 function drawShip(object) {
-  if (currentTime - object.lastHit > hitDelay || flameGrow === true) {
+  if (!isHit(object) || flameGrow === true) {
     let size = object.size;
     fill(object.color);
     triangle(-size/2, -size/5, -size/2, size/5, size/4, 0);
@@ -842,8 +857,8 @@ function drawShip(object) {
     ellipse(size/20,0,size/7,size/7);
     drawFlames(object);
   }
-  if (object.boost > 0) { drawBoost(object); }
-  else if (object.shield > 0) { drawShield(object); }
+  if (isBoost(object)) { drawBoost(object); }
+  else if (isShield(object)) { drawShield(object); }
 }
 
 function drawBoost(object) {
@@ -937,7 +952,10 @@ function makeCrater(a, b) {
   distance = a.size/2-b.size/2;
   newCrater = {xPos: Math.cos(dir)*distance, yPos: Math.sin(dir)*distance, size: size};
   for (i = 0; i < a.craters.length; i++) {
-    if (collision(newCrater, a.craters[i])) { return; }
+    if (collision(newCrater, a.craters[i])) {
+      if (a.craters[i].size > size) { return; }
+      else { a.craters.splice(i, 1); }
+    }
   }
   a.craters.push(newCrater);
 }
@@ -1098,7 +1116,7 @@ function fireBullet(object, missile) {
     let size = width/60;
     playSound(sounds.MISSILE, object);
     object.wait.missile = new Date();
-    objects.push({type: types.BULLET, xPos: object.xPos + Math.cos(object.dir)*(object.size + size), yPos: object.yPos + Math.sin(object.dir)*(object.size + size), dir: object.dir, xVel: object.xVel + Math.cos(object.dir)*speed, yVel: object.yVel + Math.sin(object.dir)*speed, dVel: 0, friction: friction, spinFriction: 0.94, maxSpeed: maxSpeed, maxRotation: maxRotation, size: size, color: 'red', end: false, missile: true, parent: object, target: null, flame: {back: false, left: false, right: false}});
+    objects.push({type: types.BULLET, xPos: object.xPos + Math.cos(object.dir)*(object.size + size), yPos: object.yPos + Math.sin(object.dir)*(object.size + size), dir: object.dir, xVel: object.xVel + Math.cos(object.dir)*speed, yVel: object.yVel + Math.sin(object.dir)*speed, dVel: 0, friction: friction, spinFriction: 0.94, maxSpeed: maxSpeed, maxRotation: maxRotation, size: size, color: 'red', end: false, missile: true, parent: object, target: null, flame: {back: false, left: false, right: false}, time: new Date()});
   } else {
     let size = width/130;
     playSound(sounds.SHOOT, object);
