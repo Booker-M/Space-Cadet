@@ -785,10 +785,10 @@ function collide(a, b) {
     shield(b, true);
   }
   if (resultA.hit) {
-    a.lastHit = new Date();
+    a.time.hit = new Date();
   }
   if (resultB.hit) {
-    b.lastHit = new Date();
+    b.time.hit = new Date();
   }
 }
 
@@ -821,16 +821,19 @@ function bump(a, b) {
         if (isHit(a) || isBoost(a)) {
           return result;
         }
-        result.hit = true;
         if (isShield(a)) {
+          result.hit = true;
           result.shield = true;
           return result;
         }
       } else if (a.lives > 1) {
-        result.hit = true;
         backup(a, b);
+        if (isShield(a)) {
+          result.shield = true;
+        }
       }
       if (a.lives > 1) {
+        result.hit = true;
         playSound(sounds.HIT, a);
         a.lives--;
         return result;
@@ -1153,7 +1156,7 @@ function genCoords(object) {
       2 +
     ship.yPos;
   for (i = 0; i < objects.length; i++) {
-    if (collision(object, objects[i], true)) {
+    if (collision(object, objects[i], (object.type === types.PLANETS || object.type === types.SHIP) && (objects[i].type === types.PLANET || objects[i].type === types.SHIP) ? true : false)) {
       return backup(object, objects[i]);
     }
   }
@@ -1163,7 +1166,7 @@ function genCoords(object) {
 }
 
 function backup(a, b, both = false, start = 0) {
-  if (Math.abs(start) >= 2 * PI) {
+  if (Math.abs(start) >= 3 * PI) {
     return genCoords(a);
   }
   let angle = start === 0 ? getDir(b, a) : checkDir(start);
