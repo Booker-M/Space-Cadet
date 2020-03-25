@@ -14,7 +14,7 @@ let flameSize = 5, flameGrow = true;
 let stars = [], objects = [];
 let allies = 0, enemies = 0, wave = 0; //wave = 0
 const boostTime = 50, shieldTime = 2500, textTime = 5000;
-let bulletWait = 250, missileWait = 250*15, boostWait = 250*15, hitDelay = 250*10;
+const bulletWait = 250, missileWait = 250*15, boostWait = 250*15, hitDelay = 250*10, CPUwait = 4, CPUgap = 8;
 
 let lastKey = {up: false, down: false, left: false, right: false, bullet: false};
 let lastKeyTime = {up: 0, down: 0, left: 0, right: 0, bullet: 0};
@@ -29,11 +29,12 @@ const sounds = {
   EXPLODE: new Audio('https://audiosoundclips.com/wp-content/uploads/2019/10/8-Bit-SFX_Explosion-2.mp3'),
   MISSILE: new Audio('https://freesound.org/data/previews/404/404754_140737-lq.mp3'),
   BOOST: new Audio('https://freesound.org/data/previews/340/340956_5858296-lq.mp3'),
-  HIT: new Audio('https://freesound.org/data/previews/170/170141_2578041-lq.mp3'),
-  SHIELD: new Audio('https://freesound.org/data/previews/456/456613_5052309-lq.mp3'),
-  SHIELDHIT: new Audio('https://freesound.org/data/previews/459/459782_2758720-lq.mp3'),
-  LIFE: new Audio('https://freesound.org/data/previews/317/317768_3905081-lq.mp3'),
-  VICTORY: new Audio('https://freesound.org/data/previews/138/138485_758593-lq.mp3')
+  HIT: new Audio('https://freesound.org/data/previews/386/386862_6891102-lq.mp3'),
+  SHIELD: new Audio('https://freesound.org/data/previews/397/397766_3905081-lq.mp3'),
+  SHIELDHIT: new Audio('https://freesound.org/data/previews/221/221418_3905081-lq.mp3'),
+  LIFE: new Audio('https://freesound.org/data/previews/397/397743_3905081-lq.mp3'),
+  VICTORY: new Audio('https://freesound.org/data/previews/138/138485_758593-lq.mp3'),
+  LOSE: new Audio('https://freesound.org/data/previews/362/362012_3905081-lq.mp3')
 };
 
 //SETUP FUNCTIONS
@@ -574,6 +575,7 @@ function endObject(i) {
     for (let j = 0; j < 10; j++) { genDebris(objects[i]); }
     if (objects[i] === ship) {
       deathTime = new Date();
+      playSound(sounds.LOSE, ship);
       return false;
     }
     if (regenRange(objects[i])) {
@@ -629,13 +631,7 @@ function lockTarget(a, b) {
     if (distance > width) { return; }
     if (a.type === types.SHIP) {
       if ((b.type !== types.SHIP || (a.team = 0 || a.team !== b.team)) && inFront(a, b)) {
-        currentTime = new Date();
-        if (distance < a.size*4) {
-          if (currentTime - a.wait.boost >= boostWait*2.5) { boost(a, directFront(a, b) ? 'Up' : onRight(a, b) ? 'Right' : 'Left'); }
-        } else if (distance < width/2) {
-          if (currentTime - a.wait.missile >= missileWait*2.5) { fireBullet(a, true); }
-          else if (currentTime - a.wait.bullet >= bulletWait*2 && currentTime - a.wait.missile >= missileWait*2*0.1) { fireBullet(a, false); }
-        }
+        attackTarget(a, b);
       }
     } else if (a.type === types.BULLET && b.type === types.SHIP && a.parent.team === b.team) { return; }
     if (a.target != null && a.target.type !== types.PLANET) {
@@ -649,9 +645,10 @@ function lockTarget(a, b) {
 
 function trackTarget(object) {
   let slow = object.type === types.BULLET ? 0.8 : 0.5;
+  let speed = moveSpeed*slow;
   if ((object.type !== types.SHIP || object === ship) && (object.type !== types.BULLET || !object.missile)) { return; }
   if (object.target == null) {
-    accelerate(object, moveSpeed*slow, object.dir);
+    accelerate(object, speed, object.dir);
     return;
   }
   object.flame = {back: false, left: false, right: false};
@@ -661,11 +658,10 @@ function trackTarget(object) {
   let distance = getDistance(object, object.target);
   let diff = dirDiff(direction, object.dir);
   spin(object, diff/(PI));
-  let speed = moveSpeed*slow;
   if (object.target.type === types.PLANET) { speed = moveSpeed; }
   else if (object.target.type === types.SHIP) {
     let velDifference = velDiff(object, object.target);
-    if (distance < object.target.size*10 && object.type !== types.BULLET) { speed = Math.max(0, velDifference); }
+    if (distance < object.target.size*CPUgap && object.type !== types.BULLET) { speed = Math.min(speed, Math.max(0, velDifference)); }
   }
   if (speed > 0) {
     object.flame.back = true;
@@ -673,6 +669,16 @@ function trackTarget(object) {
   }
   if (object.type === types.SHIP && Math.abs(diff) > 0.05) {
     diff > 0 ? object.flame.right = true : object.flame.left = true;
+  }
+}
+
+function attackTarget(a, b) {
+  let distance = getDistance(a, b);
+  currentTime = new Date();
+  if (distance < a.size*CPUgap && currentTime - a.wait.boost >= boostWait*CPUwait) { boost(a, directFront(a, b) ? 'Up' : onRight(a, b) ? 'Right' : 'Left'); }
+  else if (distance < width/2) {
+    if (currentTime - a.wait.missile >= missileWait*CPUwait) { fireBullet(a, true); }
+    else if (currentTime - a.wait.bullet >= bulletWait*CPUwait && currentTime - a.wait.missile >= missileWait*CPUwait*0.1) { fireBullet(a, false); }
   }
 }
 
