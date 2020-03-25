@@ -1,13 +1,13 @@
 //VARIABLES
 
-let newGame = false; //true
+let newGame = true; //true
 let gameStart, deathTime, waveTime, currentTime;
 let bounds;
 const types = { STAR: 'Star', SHIP: 'Ship', PLANET: 'Planet', BULLET: 'Bullet', DEBRIS: 'Debris', LOOT: 'Loot', Effect: 'Effect'};
 const effects = { BLUR: 'Blur', SMOKE: 'Smoke', EXPLOSION: 'Explosion'};
 const planetStyles = ['Crater', 'Gas'];
 let ship = {}, multiplier;
-const moveSpeed = 0.25, rotateSpeed = 0.3, boostSpeed = 10, friction = 0.996, spinFriction = 0.97, bulletSpeed = 13, maxSpeed = 10, maxRotation = 10, gravSize = 3, gravConstant = 1/8;
+const moveSpeed = 0.25, rotateSpeed = 0.3, boostSpeed = 10, friction = 0.996, spinFriction = 0.97, bulletSpeed = 13, maxSpeed = 10, maxRotation = 10, gravSize = 3, gravConstant = 1/8, teamAttack = false;
 const totalStars = 400, starLayers = 10, totalPlanets = 6, totalLoot = 3;
 let maxPlanetSize, minPlanetSize, shadeAngle;
 let flameSize = 5, flameGrow = true;
@@ -47,7 +47,7 @@ function setup() {
 }
 
 function adjustSizes() {
-  bounds = 480*10 + width;
+  bounds = 480*8 + width*2;
   maxPlanetSize = width;
   minPlanetSize = width/4;
   multiplier = width/960;
@@ -415,8 +415,8 @@ function minGravDistance(a, b) {
   return (getGravSize(a) + getGravSize(b))/2;
 }
 
-function getSpeed(a, b) {
-  return Math.sqrt(Math.pow(a.xVel, 2) + Math.pow(a.yVel, 2));
+function getSpeed(object) {
+  return Math.sqrt(Math.pow(object.xVel, 2) + Math.pow(object.yVel, 2));
 }
 
 function getDir(a, b) {
@@ -429,6 +429,10 @@ function getVelDir(a) {
 
 function dirDiff(dir1, dir2) {
   return checkDir(dir1 - dir2);
+}
+
+function velDiff(a, b) {
+  return (b.xVel*Math.cos(a.dir) + b.yVel*Math.sin(a.dir)) - getSpeed(a);
 }
 
 function checkDir(dir) {
@@ -462,10 +466,8 @@ function onRight(a, b) {
 
 function fix(i) {
   if (objects[i] === ship) { return; }
-  if (objects[i].type === types.SHIP) {
-    genCoords(objects[i]);
-    objects[i].target = ship;
-  } else { objects[i].end = true; }
+  if (objects[i].type === types.SHIP) { genCoords(objects[i]); }
+  else { objects[i].end = true; }
 }
 
 function checkSpeed(object) {
@@ -509,6 +511,8 @@ function collide(a, b) {
       if (a.type == types.BULLET && a.parent != null) { a.parent.kills++ }
     }
   }
+  if (resultA.backup) { backup(a, b, true); }
+  if (resultB.backup) { backup(b, a, true); }
   if (resultA.shield) { shield(a, true); }
   if (resultB.shield) { shield(b, true); }
   if (resultA.hit) { a.lastHit = new Date(); }
@@ -516,7 +520,7 @@ function collide(a, b) {
 }
 
 function bump(a, b) {
-  let result = {end: false, shield: false, hit: false};
+  let result = {end: false, shield: false, hit: false, backup: false};
   if (b.type === types.PLANET) {
     a.xVel = 0;
     a.yVel = 0;
@@ -525,6 +529,10 @@ function bump(a, b) {
   if (a.type !== types.PLANET) {
       if (a.type === types.SHIP) {
         if (b.type === types.LOOT) { return result; }
+        if (b.type === types.SHIP) {
+          result.backup = true;
+          if (!teamAttack && a.team !== 0 && a.team === b.team) { return result; }
+        }
         if (b.type !== types.PLANET) {
           if (currentTime - a.lastHit < hitDelay || a.boost > 0) { return result; }
           result.hit = true;
@@ -610,7 +618,7 @@ function shield(object, end) {
 
 function lockTarget(a, b) {
   if ((a.type !== types.SHIP || a===ship) && (a.type !== types.BULLET || !a.missile || a.parent===b) || (b.parent != null && b.parent === a)) { return; }
-  if (a.target != null && ((a.target === ship && ship.lives === 0) || a.target.end || (a.target.type !== types.PLANET && getDistance(a, a.target) > width) || (a.target.type === types.PLANET && getDistance(a, a.target) > a.target.size))) { a.target = null; }
+  if (a.target != null && ((a.target === ship && ship.lives === 0) || a.target.end || (a.target.type !== types.PLANET && getDistance(a, a.target) > width) || (a.target.type === types.PLANET && getDistance(a, a.target) > a.target.size))) { a.target = (a.type === types.SHIP && ship.lives > 0) ? ship : null; }
   if (b.type !== types.SHIP && b.type !== types.LOOT && (b.type !== types.BULLET || !b.missile) && (b.type !== types.PLANET || a.type === types.BULLET)) { return; }
   let distance = getDistance(a, b);
   if (b.type === types.PLANET) {
@@ -620,8 +628,7 @@ function lockTarget(a, b) {
   } else {
     if (distance > width) { return; }
     if (a.type === types.SHIP) {
-      if (b.type === types.SHIP && a.team > 0 && a.team === b.team) { return; }
-      if (inFront(a, b)) {
+      if ((b.type !== types.SHIP || (a.team = 0 || a.team !== b.team)) && inFront(a, b)) {
         currentTime = new Date();
         if (distance < a.size*4) {
           if (currentTime - a.wait.boost >= boostWait*2.5) { boost(a, directFront(a, b) ? 'Up' : onRight(a, b) ? 'Right' : 'Left'); }
@@ -631,19 +638,23 @@ function lockTarget(a, b) {
         }
       }
     } else if (a.type === types.BULLET && b.type === types.SHIP && a.parent.team === b.team) { return; }
-    if (a.target != null && a.target.type !== types.PLANET && distance >= getDistance(a, a.target)*1.3) { return; }
+    if (a.target != null && a.target.type !== types.PLANET) {
+      if (a.type === types.SHIP && a.team > 0 && b.type === types.SHIP && a.target === types.SHIP && b.team !== a.target.team && (a.team === b.team || a.team === a.target.team)) {
+        if (a.team === b.team) { return; }
+      } else if (distance >= getDistance(a, a.target)*1.3) { return; }
+    }
   }
   a.target = b;
 }
 
 function trackTarget(object) {
-  let slow = 0.6;
+  let slow = object.type === types.BULLET ? 0.8 : 0.5;
   if ((object.type !== types.SHIP || object === ship) && (object.type !== types.BULLET || !object.missile)) { return; }
   if (object.target == null) {
     accelerate(object, moveSpeed*slow, object.dir);
     return;
   }
-  object.flame = {back: true, left: false, right: false};
+  object.flame = {back: false, left: false, right: false};
   let direction = getDir(object, object.target);
   if (object.target.type === types.PLANET || (object.type === types.SHIP && object.target.type === types.BULLET)) { direction += !inFront(object, object.target) ? (onRight(object, object.target) ? -PI/3: PI/3) : (directFront(object, object.target) ? PI : (onRight(object, object.target) ? -PI/2 : PI/2)); }
   direction = checkDir(direction);
@@ -653,13 +664,15 @@ function trackTarget(object) {
   let speed = moveSpeed*slow;
   if (object.target.type === types.PLANET) { speed = moveSpeed; }
   else if (object.target.type === types.SHIP) {
-    let speedDiff = Math.max(0, getSpeed(object.target) - getSpeed(object));
-    if (distance < object.target.size*15 && object.type !== types.BULLET) { speed = Math.min(moveSpeed*0.2, speedDiff); }
+    let velDifference = velDiff(object, object.target);
+    if (distance < object.target.size*10 && object.type !== types.BULLET) { speed = Math.max(0, velDifference); }
   }
-  accelerate(object, speed, direction);
-  if (object.type === types.SHIP) {
+  if (speed > 0) {
+    object.flame.back = true;
+    accelerate(object, speed, direction);
+  }
+  if (object.type === types.SHIP && Math.abs(diff) > 0.05) {
     diff > 0 ? object.flame.right = true : object.flame.left = true;
-    if (object.target.type === types.PLANET) { return; }
   }
 }
 
@@ -690,21 +703,26 @@ function genCoords(object) {
   if (object === ship) { generateStars(); }
 }
 
-function backup(a, b) {
-  let angle = getDir(b, a);
-  let distance = minGravDistance(a, b) + 1;
+function backup(a, b, both = false, start = 0) {
+  // if (Math.abs(start) > 2*PI) { return genCoords(a); }
+  let angle = (start === 0) ? getDir(b, a) : checkDir(start);
+  let distance = (both ? getGravSize(a) : minGravDistance(a, b)) + 1;
   a.xPos = b.xPos + Math.cos(angle)*distance;
   a.yPos = b.yPos + Math.sin(angle)*distance;
-  if (a.type === types.SHIP) { a.dir = angle; }
+  if (a.type === types.SHIP) {
+    a.boost = 0;
+    if (b.type === types.PLANET) { a.dir = angle, a.xVel = 0, a.yVel = 0, a.dVel = 0; }
+    else { return; }
+  }
   for (i = 0; i < objects.length; i++) {
     if (collision(a, objects[i], true)) {
-      distance = (minGravDistance(a, b) + minGravDistance(a, objects[i]))/2;
+      if (a.type === types.PLANET) { backup(a, objects[i], false, angle); }
+      else { distance = (minGravDistance(a, b) + minGravDistance(a, objects[i]))/2; }
       a.xPos = b.xPos + Math.cos(angle)*distance;
       a.yPos = b.yPos + Math.sin(angle)*distance;
     }
   }
-  if (a === ship) { generateStars(); }
-  if (a.type === types.SHIP) { a.boost = 0; a.xVel = 0; a.yVel = 0; a.dVel = 0; }
+  // if (a === ship) { generateStars(); }
 }
 
 //OBJECT INDICATORS
@@ -786,7 +804,7 @@ function generateShips(number, team, color) {
 
 function genShip(team = 0, color = randomColor(), lives = 1) {
   let size = ship.size;
-  let newShip = {type: types.SHIP, xPos: 0, yPos: 0, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: ship.friction, spinFriction: ship.spinFriction, maxSpeed: ship.maxSpeed, maxRotation: ship.maxRotation, size: size, color: color, end: false, wait: {bullet: new Date(), missile: new Date(), boost: new Date()}, flame: {back: false, left: false, right: false}, kills: 0, boost: 0, shield: 0, target: null, team: team, lives: lives, lastHit: new Date()};
+  let newShip = {type: types.SHIP, xPos: 0, yPos: 0, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: friction, spinFriction: spinFriction, maxSpeed: maxSpeed, maxRotation: maxRotation, size: size, color: color, end: false, wait: {bullet: new Date(), missile: new Date(), boost: new Date()}, flame: {back: false, left: false, right: false}, kills: 0, boost: 0, shield: 0, target: null, team: team, lives: lives, lastHit: new Date()};
   genCoords(newShip);
   newShip.dir = getDir(newShip, ship);
   team === ship.team ? allies++ : enemies++;
@@ -1065,11 +1083,11 @@ function fireBullet(object, missile) {
     let size = width/60;
     playSound(sounds.MISSILE, object);
     object.wait.missile = new Date();
-    objects.push({type: types.BULLET, xPos: object.xPos + Math.cos(object.dir)*(object.size + size), yPos: object.yPos + Math.sin(object.dir)*(object.size + size), dir: object.dir, xVel: object.xVel + Math.cos(object.dir)*speed, yVel: object.yVel + Math.sin(object.dir)*speed, dVel: 0, friction: ship.friction, spinFriction: ship.spinFriction, maxSpeed: ship.maxSpeed, maxRotation: ship.maxRotation, size: size, color: 'red', end: false, missile: true, parent: object, target: null, flame: {back: false, left: false, right: false}});
+    objects.push({type: types.BULLET, xPos: object.xPos + Math.cos(object.dir)*(object.size + size), yPos: object.yPos + Math.sin(object.dir)*(object.size + size), dir: object.dir, xVel: object.xVel + Math.cos(object.dir)*speed, yVel: object.yVel + Math.sin(object.dir)*speed, dVel: 0, friction: friction, spinFriction: spinFriction, maxSpeed: maxSpeed, maxRotation: maxRotation, size: size, color: 'red', end: false, missile: true, parent: object, target: null, flame: {back: false, left: false, right: false}});
   } else {
     let size = width/130;
     playSound(sounds.SHOOT, object);
-    objects.push({type: types.BULLET, xPos: object.xPos + Math.cos(object.dir)*(object.size + size), yPos: object.yPos + Math.sin(object.dir)*(object.size + size), dir: object.dir, xVel: object.xVel + Math.cos(object.dir)*speed, yVel: object.yVel + Math.sin(object.dir)*speed, dVel: 0, friction: 0.998, spinFriction: ship.spinFriction, maxSpeed: 40, maxRotation: 25, size: size, color: [0, 255, 255, 245], end: false, missile: false, parent: object});
+    objects.push({type: types.BULLET, xPos: object.xPos + Math.cos(object.dir)*(object.size + size), yPos: object.yPos + Math.sin(object.dir)*(object.size + size), dir: object.dir, xVel: object.xVel + Math.cos(object.dir)*speed, yVel: object.yVel + Math.sin(object.dir)*speed, dVel: 0, friction: 0.998, spinFriction: spinFriction, maxSpeed: 40, maxRotation: 25, size: size, color: [0, 255, 255, 245], end: false, missile: false, parent: object});
   }
 }
 
