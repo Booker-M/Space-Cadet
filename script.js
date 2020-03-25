@@ -1,6 +1,6 @@
 //VARIABLES
 
-let newGame = false; //true
+let newGame = true; //true
 let gameStart, deathTime, waveTime, currentTime;
 let bounds;
 const types = { STAR: 'Star', SHIP: 'Ship', PLANET: 'Planet', BULLET: 'Bullet', DEBRIS: 'Debris', LOOT: 'Loot', Effect: 'Effect'};
