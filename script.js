@@ -1,6 +1,6 @@
 //VARIABLES
 
-let newGame = true; //true
+let newGame = false; //true
 let gameStart, deathTime, waveTime, currentTime;
 let bounds;
 const types = {
@@ -281,10 +281,8 @@ function keys() {
       if (currentTime - ship.wait.missile >= missileWait) {
         fireBullet(ship, true);
       }
-    } else if (currentTime - lastKeyTime.bullet > delta && lastKey.bullet) {
-      if (currentTime - ship.wait.bullet >= bulletWait) {
-        fireBullet(ship, false);
-      }
+    } else if (currentTime - ship.wait.bullet >= bulletWait) {
+      fireBullet(ship);
     }
     lastKeyTime.bullet = currentTime;
     lastKey.bullet = true;
@@ -1111,7 +1109,7 @@ function attackTarget(a, b) {
       currentTime - a.wait.bullet >= bulletWait * CPUwait &&
       currentTime - a.wait.missile >= missileWait * CPUwait * 0.1
     ) {
-      fireBullet(a, false);
+      fireBullet(a);
     }
   }
 }
@@ -1925,7 +1923,7 @@ function drawGas(object) {
 
 //BULLETS
 
-function fireBullet(object, missile) {
+function fireBullet(object, missile = false) {
   let speed = bulletSpeed;
   object.wait.bullet = new Date();
   if (missile) {
