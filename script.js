@@ -13,7 +13,7 @@ let maxPlanetSize, minPlanetSize, shadeAngle;
 let flameSize = 5, flameGrow = true;
 let stars = [], objects = [];
 let allies = 0, enemies = 0, wave = 0; //wave = 0
-const textTime = 1000*5, boostTime = 1000, shieldTime = 1000*15, missileTime = 1000*15, hitTime = 1000*3;
+const textTime = 1000*5, boostTime = 1000, shieldTime = 1000*30, missileTime = 1000*15, hitTime = 1000*3;
 const bulletWait = 1000/4, missileWait = 1000*4, boostWait = 1000*4, CPUwait = 4, CPUgap = 8;
 
 let lastKey = {up: false, down: false, left: false, right: false, bullet: false};
@@ -636,7 +636,7 @@ function shield(object, end = false) {
 }
 
 function isShield(object) {
-  return currentTime - object.time.shield < shieldTime/(object.type !== ship ? CPUwait : 1);
+  return currentTime - object.time.shield < shieldTime/(object !== ship ? CPUwait : 1);
 }
 
 function lockTarget(a, b) {
