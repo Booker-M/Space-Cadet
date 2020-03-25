@@ -533,7 +533,7 @@ function bump(a, b) {
   }
   if (a.type !== types.PLANET) {
       if (a.type === types.SHIP) {
-        if (b.type === types.LOOT) { return result; }
+        if (b.type === types.LOOT || b.type === types.DEBRIS) { return result; }
         if (b.type === types.SHIP) {
           if (a.boost === 0 && b.boost === 0) { result.backup = true; }
           if ((b.boost === 0 && currentTime - b.lastHit < hitDelay) || (!teamAttack && a.team !== 0 && a.team === b.team)) { return result; }
