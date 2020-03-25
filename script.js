@@ -645,7 +645,7 @@ function lockTarget(a, b) {
 
 function trackTarget(object) {
   let slow = object.type === types.BULLET ? 0.8 : 0.5;
-  let speed = moveSpeed*slow;
+  let speed = moveSpeed*(object.type === types.BULLET ? 0.9 : slow);
   if ((object.type !== types.SHIP || object === ship) && (object.type !== types.BULLET || !object.missile)) { return; }
   if (object.target == null) {
     accelerate(object, speed, object.dir);
@@ -1089,7 +1089,7 @@ function fireBullet(object, missile) {
     let size = width/60;
     playSound(sounds.MISSILE, object);
     object.wait.missile = new Date();
-    objects.push({type: types.BULLET, xPos: object.xPos + Math.cos(object.dir)*(object.size + size), yPos: object.yPos + Math.sin(object.dir)*(object.size + size), dir: object.dir, xVel: object.xVel + Math.cos(object.dir)*speed, yVel: object.yVel + Math.sin(object.dir)*speed, dVel: 0, friction: friction, spinFriction: spinFriction, maxSpeed: maxSpeed, maxRotation: maxRotation, size: size, color: 'red', end: false, missile: true, parent: object, target: null, flame: {back: false, left: false, right: false}});
+    objects.push({type: types.BULLET, xPos: object.xPos + Math.cos(object.dir)*(object.size + size), yPos: object.yPos + Math.sin(object.dir)*(object.size + size), dir: object.dir, xVel: object.xVel + Math.cos(object.dir)*speed, yVel: object.yVel + Math.sin(object.dir)*speed, dVel: 0, friction: friction, spinFriction: 0.94, maxSpeed: maxSpeed, maxRotation: maxRotation, size: size, color: 'red', end: false, missile: true, parent: object, target: null, flame: {back: false, left: false, right: false}});
   } else {
     let size = width/130;
     playSound(sounds.SHOOT, object);
