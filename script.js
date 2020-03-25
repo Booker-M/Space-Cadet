@@ -482,7 +482,7 @@ function adjust(object) {
 
 function adjustShip(object) {
   if (object.boost > 0) { object.boost--; }
-  if (object.shield > 1) { object.shield--; }
+  if (object.shield > 1) { object.shield -= object===ship ? 1 : CPUwait; }
   else if (object.shield === 1) { shield(object, true); }
 }
 
@@ -512,8 +512,12 @@ function collide(a, b) {
       if (a.type == types.BULLET && a.parent != null) { a.parent.kills++ }
     }
   }
-  if (resultA.backup) { backup(a, b, true); }
-  if (resultB.backup) { backup(b, a, true); }
+  if (resultA.backup || resultB.backup) {
+    backup(a, b, true);
+    backup(b, a, true);
+    let xTemp = b.xVel, yTemp = b.yVel;
+    b.xVel = a.xVel*0.5, b.yVel = a.yVel*0.5, a.xVel = xTemp*0.5, a.yVel = yTemp*0.5
+  }
   if (resultA.shield) { shield(a, true); }
   if (resultB.shield) { shield(b, true); }
   if (resultA.hit) { a.lastHit = new Date(); }
@@ -526,14 +530,15 @@ function bump(a, b) {
     a.xVel = 0;
     a.yVel = 0;
     a.dVel = 0;
-  } else if (b.type === types.SHIP && b.boost === 0 && currentTime - b.lastHit < hitDelay) { return result; }
+  }
   if (a.type !== types.PLANET) {
       if (a.type === types.SHIP) {
         if (b.type === types.LOOT) { return result; }
         if (b.type === types.SHIP) {
-          result.backup = true;
-          if (!teamAttack && a.team !== 0 && a.team === b.team) { return result; }
+          if (a.boost === 0 && b.boost === 0) { result.backup = true; }
+          if ((b.boost === 0 && currentTime - b.lastHit < hitDelay) || (!teamAttack && a.team !== 0 && a.team === b.team)) { return result; }
         }
+        if (!teamAttack && b.type === types.BULLET && a.team !== 0 && a.team === b.parent.team) { return result; }
         if (b.type !== types.PLANET) {
           if (currentTime - a.lastHit < hitDelay || a.boost > 0) { return result; }
           result.hit = true;
@@ -583,7 +588,7 @@ function endObject(i) {
         objects[i].end = false;
         return false;
     }
-    objects[i].team === ship.team ? allies-- : enemies--;
+    (objects[i].team === ship.team) ? allies-- : enemies--;
   } else if (objects[i].type === types.LOOT) {
     genCoords(objects[i]);
     objects[i].end = false;
@@ -630,9 +635,7 @@ function lockTarget(a, b) {
   } else {
     if (distance > width) { return; }
     if (a.type === types.SHIP) {
-      if ((b.type !== types.SHIP || (a.team = 0 || a.team !== b.team)) && inFront(a, b)) {
-        attackTarget(a, b);
-      }
+      if ((b.type !== types.SHIP || (a.team === 0 || a.team !== b.team)) && inFront(a, b)) { attackTarget(a, b); }
     } else if (a.type === types.BULLET && b.type === types.SHIP && a.parent.team === b.team) { return; }
     if (a.target != null && a.target.type !== types.PLANET) {
       if (a.type === types.SHIP && a.team > 0 && b.type === types.SHIP && a.target === types.SHIP && b.team !== a.target.team && (a.team === b.team || a.team === a.target.team)) {
@@ -644,7 +647,7 @@ function lockTarget(a, b) {
 }
 
 function trackTarget(object) {
-  let slow = object.type === types.BULLET ? 0.8 : 0.5;
+  let slow = object.type === types.BULLET ? 0.8 : 0.4;
   let speed = moveSpeed*(object.type === types.BULLET ? 0.9 : slow);
   if ((object.type !== types.SHIP || object === ship) && (object.type !== types.BULLET || !object.missile)) { return; }
   if (object.target == null) {
@@ -658,7 +661,7 @@ function trackTarget(object) {
   let distance = getDistance(object, object.target);
   let diff = dirDiff(direction, object.dir);
   spin(object, diff/(PI));
-  if (object.target.type === types.PLANET) { speed = moveSpeed; }
+  if (object.target.type === types.PLANET) {speed = moveSpeed; }
   else if (object.target.type === types.SHIP) {
     let velDifference = velDiff(object, object.target);
     if (distance < object.target.size*CPUgap && object.type !== types.BULLET) { speed = Math.min(speed, Math.max(0, velDifference)); }
@@ -716,16 +719,22 @@ function backup(a, b, both = false, start = 0) {
   a.xPos = b.xPos + Math.cos(angle)*distance;
   a.yPos = b.yPos + Math.sin(angle)*distance;
   if (a.type === types.SHIP) {
-    a.boost = 0;
-    if (b.type === types.PLANET) { a.dir = angle, a.xVel = 0, a.yVel = 0, a.dVel = 0; }
-    else { return; }
+    if (b.type === types.PLANET) {
+      a.boost = 0;
+      a.dir = angle, a.xVel = 0, a.yVel = 0, a.dVel = 0;
+    }
+    else { 
+      return;
+    }
   }
   for (i = 0; i < objects.length; i++) {
     if (collision(a, objects[i], true)) {
-      if (a.type === types.PLANET) { backup(a, objects[i], false, angle); }
-      else { distance = (minGravDistance(a, b) + minGravDistance(a, objects[i]))/2; }
-      a.xPos = b.xPos + Math.cos(angle)*distance;
-      a.yPos = b.yPos + Math.sin(angle)*distance;
+      if (a.type === types.PLANET) { return backup(a, objects[i], false, angle + PI/4); }
+      else {
+        distance = (minGravDistance(a, b) + minGravDistance(a, objects[i]))/2;
+        a.xPos = b.xPos + Math.cos(angle)*distance;
+        a.yPos = b.yPos + Math.sin(angle)*distance;
+      }
     }
   }
   // if (a === ship) { generateStars(); }
@@ -813,7 +822,7 @@ function genShip(team = 0, color = randomColor(), lives = 1) {
   let newShip = {type: types.SHIP, xPos: 0, yPos: 0, dir: 0, xVel: 0, yVel: 0, dVel: 0, friction: friction, spinFriction: spinFriction, maxSpeed: maxSpeed, maxRotation: maxRotation, size: size, color: color, end: false, wait: {bullet: new Date(), missile: new Date(), boost: new Date()}, flame: {back: false, left: false, right: false}, kills: 0, boost: 0, shield: 0, target: null, team: team, lives: lives, lastHit: new Date()};
   genCoords(newShip);
   newShip.dir = getDir(newShip, ship);
-  team === ship.team ? allies++ : enemies++;
+ (team === ship.team) ? allies++ : enemies++;
   return newShip;
 }
 
