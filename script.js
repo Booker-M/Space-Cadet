@@ -1,6 +1,6 @@
 //VARIABLES
 
-let newGame = true; //true
+let newGame = false; //true
 let gameStart, deathTime, waveTime, currentTime;
 let bounds;
 const types = { STAR: 'Star', SHIP: 'Ship', PLANET: 'Planet', BULLET: 'Bullet', DEBRIS: 'Debris', LOOT: 'Loot', Effect: 'Effect'};
@@ -555,11 +555,11 @@ function bump(a, b) {
           a.lives--;
           return result;
         }
-      } else if (a.type === types.LOOT) { giveLoot(b); }
+      }
+    else if (a.type === types.LOOT) { giveLoot(b); }
+    else if (a.type === types.DEBRIS) { return result; }
     result.end = true;
-    } else if (a.style === "Crater") {
-      makeCrater(a, b);
-    }
+    } else if (a.style === "Crater") { makeCrater(a, b); }
   return result;
 }
 
