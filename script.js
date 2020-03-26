@@ -16,10 +16,10 @@ const effects = { BLUR: "Blur", SMOKE: "Smoke", EXPLOSION: "Explosion" };
 const planetStyles = ["Crater", "Gas"];
 let ship = {},
   multiplier;
-const moveSpeed = 0.25,
+const moveSpeed = 0.26,
   rotateSpeed = 0.3,
   boostSpeed = 10,
-  friction = 0.996,
+  friction = 0.995,
   spinFriction = 0.97,
   bulletSpeed = 13,
   maxSpeed = 10,
@@ -699,6 +699,7 @@ function fix(i) {
   }
   if (objects[i].type === types.SHIP) {
     genCoords(objects[i]);
+    objects[i].target = ship;
   } else {
     objects[i].end = true;
   }
@@ -851,20 +852,31 @@ function bump(a, b) {
 }
 
 function onTeam(a, b) {
-  if (a.type === types.BULLET && b.type === types.SHIP) {
-    return onTeam(b, a);
-  }
-  if (
-    a.type !== types.SHIP ||
-    (b.type !== types.SHIP && b.type !== types.BULLET)
-  ) {
+  if (teamAttack) {
     return false;
   }
-  return (
-    !teamAttack &&
-    a.team !== 0 &&
-    a.team === (b.type === types.BULLET ? b.parent.team : b.team)
-  );
+  let aTeam, bTeam;
+  if (a.type === types.BULLET) {
+    if (a.parent.team === 0) {
+      return false;
+    }
+    aTeam = a.parent.team;
+  } else if (a.team === "undefined" || a.team === 0) {
+    return false;
+  } else {
+    aTeam = a.team;
+  }
+  if (b.type === types.BULLET) {
+    if (b.parent.team === 0) {
+      return false;
+    }
+    bTeam = b.parent.team;
+  } else if (b.team === "undefined" || b.team === 0) {
+    return false;
+  } else {
+    bTeam = b.team;
+  }
+  return aTeam === bTeam;
 }
 
 function isHit(object) {
@@ -974,69 +986,58 @@ function isShield(object) {
 function lockTarget(a, b) {
   if (
     ((a.type !== types.SHIP || a === ship) &&
-      (a.type !== types.BULLET || !a.missile || a.parent === b)) ||
+      (a.type !== types.BULLET ||
+        !a.missile ||
+        a.parent === b ||
+        onTeam(a, b))) ||
     (b.parent != null && b.parent === a)
   ) {
     return;
   }
   if (
-    a.target != null &&
-    ((a.target === ship && ship.lives === 0) ||
-      a.target.end ||
-      (a.target.type !== types.PLANET && getDistance(a, a.target) > width) ||
-      (a.target.type === types.PLANET &&
-        getDistance(a, a.target) > a.target.size))
-  ) {
-    a.target = a.type === types.SHIP && ship.lives > 0 ? ship : null;
-  }
-  if (
     b.type !== types.SHIP &&
     b.type !== types.LOOT &&
-    (b.type !== types.BULLET || !b.missile) &&
+    (b.type !== types.BULLET || !b.missile || b.parent === a || onTeam(a, b)) &&
     (b.type !== types.PLANET || a.type === types.BULLET)
   ) {
     return;
   }
   let distance = getDistance(a, b);
+  if (
+    a.target != null &&
+    a.target === b &&
+    ((b === ship && ship.lives === 0) ||
+      b.end ||
+      (b.type !== types.PLANET && distance > bounds / 3) ||
+      (b.type === types.PLANET && distance > b.size))
+  ) {
+    a.target = null;
+    return;
+  }
   if (b.type === types.PLANET) {
     if (a.target != null && a.target.type === types.PLANET) {
-      if (distance >= getDistance(a, a.target)) {
+      if (a.target === b || distance >= getDistance(a, a.target)) {
         return;
       }
     } else if (distance > b.size) {
       return;
     }
   } else {
-    if (distance > width) {
+    if (distance > bounds / 3 || !inFront(a, b)) {
       return;
     }
     if (a.type === types.SHIP) {
-      if (
-        (b.type !== types.SHIP || a.team === 0 || a.team !== b.team) &&
-        inFront(a, b)
-      ) {
+      if (!onTeam(a, b)) {
         attackTarget(a, b);
       }
-    } else if (
-      a.type === types.BULLET &&
-      b.type === types.SHIP &&
-      a.parent.team === b.team
-    ) {
-      return;
     }
-    if (a.target != null && a.target.type !== types.PLANET) {
-      if (
-        a.type === types.SHIP &&
-        a.team > 0 &&
-        b.type === types.SHIP &&
-        a.target === types.SHIP &&
-        b.team !== a.target.team &&
-        (a.team === b.team || a.team === a.target.team)
+    if (a.target != null) {
+      if (onTeam(a, b) && !onTeam(a, a.target)) {
+        return;
+      } else if (
+        (!onTeam(a, b) && !onTeam(a, a.target)) ||
+        (onTeam(a, b) && distance >= getDistance(a, a.target) * 1.5)
       ) {
-        if (a.team === b.team) {
-          return;
-        }
-      } else if (distance >= getDistance(a, a.target) * 1.3) {
         return;
       }
     }
@@ -1156,7 +1157,16 @@ function genCoords(object) {
       2 +
     ship.yPos;
   for (i = 0; i < objects.length; i++) {
-    if (collision(object, objects[i], (object.type === types.PLANET || object.type === types.SHIP) && (objects[i].type === types.PLANET || objects[i].type === types.SHIP) ? true : false)) {
+    if (
+      collision(
+        object,
+        objects[i],
+        (object.type === types.PLANET || object.type === types.SHIP) &&
+          (objects[i].type === types.PLANET || objects[i].type === types.SHIP)
+          ? true
+          : false
+      )
+    ) {
       return backup(object, objects[i]);
     }
   }
