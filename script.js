@@ -1,6 +1,6 @@
 //VARIABLES
 
-let newGame = true; //true
+let newGame = false; //true
 let gameStart, deathTime, waveTime, currentTime;
 let bounds;
 const types = {
@@ -1156,7 +1156,7 @@ function genCoords(object) {
       2 +
     ship.yPos;
   for (i = 0; i < objects.length; i++) {
-    if (collision(object, objects[i], (object.type === types.PLANETS || object.type === types.SHIP) && (objects[i].type === types.PLANET || objects[i].type === types.SHIP) ? true : false)) {
+    if (collision(object, objects[i], (object.type === types.PLANET || object.type === types.SHIP) && (objects[i].type === types.PLANET || objects[i].type === types.SHIP) ? true : false)) {
       return backup(object, objects[i]);
     }
   }
