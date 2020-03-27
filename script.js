@@ -1,6 +1,6 @@
 //VARIABLES
 
-let newGame = true; //true
+let newGame = false; //true
 let gameStart, deathTime, waveTime, currentTime;
 let bounds;
 const types = {
@@ -14,6 +14,7 @@ const types = {
 };
 const effects = { BLUR: "Blur", SMOKE: "Smoke", EXPLOSION: "Explosion" };
 const planetStyles = ["Crater", "Gas"];
+const powerups = ["Shield", "Rapidfire"];
 let ship = {},
   multiplier,
   UIsize,
@@ -47,9 +48,11 @@ let allies = 0,
 const textTime = 1000 * 5,
   boostTime = 1000,
   shieldTime = 1000 * 30,
+  rapidfireTime = 1000 * 15,
   missileTime = 1000 * 15,
   hitTime = 1000 * 3;
-const bulletWait = 1000 / 5,
+const bulletWait = 1000 / 4,
+  rapidfireWait = 1000 / 7,
   missileWait = 1000 * 4,
   boostWait = 1000 * 4;
 
@@ -97,6 +100,12 @@ const sounds = {
   ),
   LOSE: new Audio(
     "https://freesound.org/data/previews/362/362012_3905081-lq.mp3"
+  ),
+  RAPIDFIRE: new Audio(
+    "https://freesound.org/data/previews/397/397766_3905081-lq.mp3"
+  ),
+  NORMALFIRE: new Audio(
+    "https://freesound.org/data/previews/221/221418_3905081-lq.mp3"
   )
 };
 
@@ -115,7 +124,7 @@ function setup() {
 
 function adjustSizes() {
   bounds = 480 * 10 + height * 2;
-  maxPlanetSize = height*4/3;
+  maxPlanetSize = (height * 4) / 3;
   minPlanetSize = height / 2;
   multiplier = height / 720;
   UIsize = Math.min(1.5, Math.max(0.7, multiplier));
@@ -145,7 +154,7 @@ function reset() {
     color: randomColor(),
     end: false,
     wait: { bullet: new Date(), missile: new Date(), boost: new Date() },
-    time: { boost: null, shield: null, hit: new Date() },
+    time: { boost: null, shield: null, rapidfire: null, hit: new Date() },
     flame: { back: false, left: false, right: false },
     kills: 0,
     team: 1,
@@ -285,7 +294,10 @@ function keys() {
       if (currentTime - ship.wait.missile >= missileWait) {
         fireBullet(ship, true);
       }
-    } else if (currentTime - ship.wait.bullet >= bulletWait) {
+    } else if (
+      currentTime - ship.wait.bullet >=
+      (isRapidfire(ship) ? rapidfireWait : bulletWait)
+    ) {
       fireBullet(ship);
     }
     lastKeyTime.bullet = currentTime;
@@ -734,11 +746,23 @@ function checkSpeed(object) {
 }
 
 function adjust(object) {
+  if (object.type === types.SHIP) {
+    adjustShip(object);
+  }
   if (object.type === types.EFFECT) {
     adjustEffect(object);
   }
   if (object.type === types.BULLET && object.missile) {
     adjustMissile(object);
+  }
+}
+
+function adjustShip(object) {
+  if (Math.round(currentTime - object.time.shield) === shieldTime) {
+    playSound(sounds.SHIELDHIT, object);
+  }
+  if (Math.round(currentTime - object.time.rapidfire) === rapidfireTime) {
+    playSound(sounds.NORMALFIRE, object);
   }
 }
 
@@ -908,16 +932,37 @@ function giveLoot(object) {
     ship.lives <= 10 &&
     Math.random() < 0.2
   ) {
-    playSound(sounds.LIFE, object);
-    ship.lives++;
-    return;
+    heart(object);
   }
-  if (object.type === types.SHIP) {
+  let powerup = powerups[parseInt(Math.random() * powerups.length)];
+  if (powerup === "Shield") {
     shield(object);
   }
-  if (object.type === types.BULLET) {
-    shield(object.parent);
+  if (powerup === "Rapidfire") {
+    rapidfire(object);
   }
+}
+
+function heart(object) {
+  if (object.type === types.BULLET) {
+    return heart(object.parent);
+  }
+  playSound(sounds.LIFE, object);
+  object.lives++;
+}
+
+function rapidfire(object, end = false) {
+  if (object.type === types.BULLET) {
+    return rapidfire(object.parent);
+  }
+  end
+    ? (object.time.rapidfire -= rapidfireTime)
+    : (object.time.rapidfire = new Date());
+  playSound(end ? sounds.NORMALFIRE : sounds.RAPIDFIRE, object);
+}
+
+function isRapidfire(object) {
+  return currentTime - object.time.rapidfire < rapidfireTime;
 }
 
 function endObject(i) {
@@ -990,6 +1035,9 @@ function stopBoost(object) {
 }
 
 function shield(object, end = false) {
+  if (object.type === types.BULLET) {
+    return shield(object.parent);
+  }
   end ? (object.time.shield -= shieldTime) : (object.time.shield = new Date());
   playSound(end ? sounds.SHIELDHIT : sounds.SHIELD, object);
 }
@@ -1129,7 +1177,8 @@ function attackTarget(a, b) {
     if (currentTime - a.wait.missile >= missileWait * CPUwait) {
       fireBullet(a, true);
     } else if (
-      currentTime - a.wait.bullet >= bulletWait * CPUwait &&
+      currentTime - a.wait.bullet >=
+        (isRapidfire(a) ? rapidfireWait : bulletWait) * CPUwait &&
       currentTime - a.wait.missile >= missileWait * CPUwait * 0.1
     ) {
       fireBullet(a);
@@ -1382,7 +1431,7 @@ function genShip(team = 0, color = randomColor(), lives = 1) {
     color: color,
     end: false,
     wait: { bullet: new Date(), missile: new Date(), boost: new Date() },
-    time: { boost: null, shield: null, hit: new Date() },
+    time: { boost: null, shield: null, rapidfire: null, hit: new Date() },
     flame: { back: false, left: false, right: false },
     kills: 0,
     target: null,
@@ -1980,8 +2029,8 @@ function fireBullet(object, missile = false) {
     object.wait.missile = new Date();
     objects.push({
       type: types.BULLET,
-      xPos: object.xPos + Math.cos(object.dir) * (object.size/2 + size),
-      yPos: object.yPos + Math.sin(object.dir) * (object.size/2 + size),
+      xPos: object.xPos + Math.cos(object.dir) * (object.size / 2 + size),
+      yPos: object.yPos + Math.sin(object.dir) * (object.size / 2 + size),
       dir: object.dir,
       xVel: object.xVel + Math.cos(object.dir) * speed,
       yVel: object.yVel + Math.sin(object.dir) * speed,
