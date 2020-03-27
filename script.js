@@ -1287,19 +1287,20 @@ function backup(a, b, both = false, start = 0) {
 //OBJECT INDICATORS
 
 function drawArrow(object) {
-  if (object.type !== types.PLANET && object.type !== types.SHIP) {
+  if (object.type !== types.PLANET && object.type !== types.SHIP && (object.type !== types.BULLET || !object.missile) && object.type !== types.LOOT) {
     return;
   }
   a = getArrow(object);
   fill(
-    object.color[0],
-    object.color[1],
-    object.color[2],
-    (255 * (bounds - getDistance(ship, object))) / bounds
+  object.color[0],
+  object.color[1],
+  object.color[2],
+  (255 * (bounds - getDistance(ship, object))) / bounds
   );
   translate(a.xPos, a.yPos);
-  rotate(a.dir);
+  textSize(20 * UIsize);
   if (object.type === types.SHIP) {
+    rotate(a.dir);
     triangle(
       10 * multiplier,
       10 * multiplier,
@@ -1309,8 +1310,15 @@ function drawArrow(object) {
       0 * multiplier
     );
   }
-  if (object.type === types.PLANET) {
+  else if (object.type === types.PLANET) {
     ellipse(0, 0, 20 * multiplier);
+  }
+  else if (object.type === types.BULLET) {
+    text("!", 0, 0);
+  }
+  else {
+    // fill(200);
+    text("?", 0, 0);
   }
 }
 
@@ -2040,7 +2048,7 @@ function fireBullet(object, missile = false) {
       maxSpeed: maxSpeed,
       maxRotation: maxRotation,
       size: size,
-      color: "red",
+      color: [255, 0, 0],
       end: false,
       missile: true,
       parent: object,
@@ -2109,6 +2117,7 @@ function genLoot() {
     maxSpeed: 0,
     maxRotation: 0,
     size: 36 * multiplier,
+    color: [175, 175, 175],
     end: false
   };
   genCoords(newLoot);
