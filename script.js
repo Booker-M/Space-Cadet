@@ -15,7 +15,9 @@ const types = {
 const effects = { BLUR: "Blur", SMOKE: "Smoke", EXPLOSION: "Explosion" };
 const planetStyles = ["Crater", "Gas"];
 let ship = {},
-  multiplier;
+  multiplier,
+  UIsize,
+  fontSize;
 const moveSpeed = 0.26,
   rotateSpeed = 0.3,
   boostSpeed = 10,
@@ -41,7 +43,7 @@ let stars = [],
   objects = [];
 let allies = 0,
   enemies = 0,
-  wave = 0; //wave = 0
+  wave = 4; //wave = 0
 const textTime = 1000 * 5,
   boostTime = 1000,
   shieldTime = 1000 * 30,
@@ -112,11 +114,12 @@ function setup() {
 }
 
 function adjustSizes() {
-  bounds = 480 * 8 + width * 2;
-  maxPlanetSize = width;
-  minPlanetSize = width / 4;
-  multiplier = width / 960;
-  ship.size = width / 30;
+  bounds = 480 * 10 + height * 2;
+  maxPlanetSize = height*4/3;
+  minPlanetSize = height / 2;
+  multiplier = height / 720;
+  UIsize = Math.min(1.5, Math.max(0.7, multiplier));
+  fontSize = Math.min(3, width / 960);
 }
 
 function reset() {
@@ -138,7 +141,7 @@ function reset() {
     spinFriction: spinFriction,
     maxSpeed: maxSpeed,
     maxRotation: maxRotation,
-    size: ship.size,
+    size: 36 * multiplier,
     color: randomColor(),
     end: false,
     wait: { bullet: new Date(), missile: new Date(), boost: new Date() },
@@ -347,31 +350,45 @@ function refresh() {
 function drawUI() {
   resetMatrix();
   fill("red");
-  let s = 15;
-  translate(40, 40);
+  let s = 15 * UIsize;
+  translate(40 * UIsize, 40 * UIsize);
   rotate(-PI / 5);
   triangle(s / 2, -s / 4, s / 2, s / 4, s, 0);
   fill(200);
   rect(0, 0, s, s / 2);
 
   resetMatrix();
-  translate(0, 10);
+  translate(0, 10 * UIsize);
   fill(100);
-  rect(135, 30, 150, 10);
+  rect(135 * UIsize, 30 * UIsize, 150 * UIsize, 10 * UIsize);
   fill("red");
   let length =
     Math.min(1, (new Date() - ship.wait.missile) / missileWait) * 150;
-  rect(60 + length / 2, 30, length, 10);
+  rect((60 + length / 2) * UIsize, 30 * UIsize, length * UIsize, 10 * UIsize);
 
   fill(0, 150, 255);
-  triangle(32, 53, 32, 68, 42, 60);
-  triangle(32 + 10, 53, 32 + 10, 68, 42 + 10, 60);
+  triangle(
+    32 * UIsize,
+    53 * UIsize,
+    32 * UIsize,
+    68 * UIsize,
+    42 * UIsize,
+    60 * UIsize
+  );
+  triangle(
+    42 * UIsize,
+    53 * UIsize,
+    42 * UIsize,
+    68 * UIsize,
+    52 * UIsize,
+    60 * UIsize
+  );
 
   fill(100);
-  rect(135, 60, 150, 10);
+  rect(135 * UIsize, 60 * UIsize, 150 * UIsize, 10 * UIsize);
   fill(0, 150, 255);
   length = Math.min(1, (new Date() - ship.wait.boost) / boostWait) * 150;
-  rect(60 + length / 2, 60, length, 10);
+  rect((60 + length / 2) * UIsize, 60 * UIsize, length * UIsize, 10 * UIsize);
 
   hearts();
 
@@ -412,7 +429,7 @@ function writeTitle(a) {
   resetMatrix();
   textFont("Consolas");
   textStyle(BOLD);
-  textSize(width / 10);
+  textSize(110 * fontSize);
   fill(200, a);
   textAlign(RIGHT, CENTER);
   text("Space", width / 2 - 10, height / 3);
@@ -425,17 +442,17 @@ function writeText(a, b, c, d, string) {
   resetMatrix();
   textFont("Consolas");
   textStyle(BOLD);
-  textSize(Math.min(width / 40, 30));
+  textSize(20 * fontSize);
   fill(a, b, c, d);
   textAlign(CENTER, CENTER);
-  text(string, width / 2 - 10, ship.lives === 0 ? height / 2 : height / 3);
+  text(string, width / 2, ship.lives === 0 ? height / 2 : height / 3);
 }
 
 function hearts() {
   resetMatrix();
   fill(200, 0, 0);
-  let s = 12;
-  translate(40 + s / 2, 95);
+  let s = 12 * UIsize;
+  translate(40 * UIsize + s / 2, 95 * UIsize);
   for (i = 0; i < ship.lives; i++) {
     ellipse((-s / 2) * 0.9, s / 2, s);
     ellipse((s / 2) * 0.9, s / 2, s);
@@ -448,11 +465,11 @@ function shipCount() {
   resetMatrix();
   fill("white");
   textFont("Consolas");
-  textSize(Math.min(width / 50, 25));
+  textSize(20 * UIsize);
   textAlign(RIGHT);
-  text("Enemies: " + enemies, width - 40, 40);
+  text("Enemies: " + enemies, width - 40 * UIsize, 40 * UIsize);
   if (allies > 0) {
-    text("Allies: " + allies, width - 40, 40 + 1.5 * Math.min(width / 50, 25));
+    text("Allies: " + allies, width - 40 * UIsize, 60 * UIsize);
   }
 }
 
@@ -1006,11 +1023,11 @@ function lockTarget(a, b) {
   let distance = getDistance(a, b);
   if (
     a.target != null &&
-    a.target === b &&
-    ((b === ship && ship.lives === 0) ||
-      b.end ||
-      distance > bounds ||
-      (b.type === types.PLANET && distance > b.size * 1.5))
+    ((a.target === ship && ship.lives === 0) ||
+      a.target.end ||
+      getDistance(a, a.target) > bounds ||
+      (a.target.type === types.PLANET &&
+        getDistance(a, a.target) > a.target.size * 1.5))
   ) {
     a.target = null;
     return;
@@ -1234,26 +1251,33 @@ function drawArrow(object) {
   translate(a.xPos, a.yPos);
   rotate(a.dir);
   if (object.type === types.SHIP) {
-    triangle(10, 10, 10, -10, -10, 0);
+    triangle(
+      10 * multiplier,
+      10 * multiplier,
+      10 * multiplier,
+      -10 * multiplier,
+      -10 * multiplier,
+      0 * multiplier
+    );
   }
   if (object.type === types.PLANET) {
-    ellipse(0, 0, 20);
+    ellipse(0, 0, 20 * multiplier);
   }
 }
 
 function getArrow(object) {
   let a = { xPos: object.xPos, yPos: object.yPos, dir: 0 };
-  if (a.xPos > width / 2 - 20 + ship.xPos) {
-    a.xPos = width - 20;
-  } else if (a.xPos < -width / 2 + 20 + ship.xPos) {
-    a.xPos = 20;
+  if (a.xPos > width / 2 - 20 * multiplier + ship.xPos) {
+    a.xPos = width - 20 * multiplier;
+  } else if (a.xPos < -width / 2 + 20 * multiplier + ship.xPos) {
+    a.xPos = 20 * multiplier;
   } else {
     a.xPos += -ship.xPos + width / 2;
   }
-  if (a.yPos > height / 2 - 20 + ship.yPos) {
-    a.yPos = height - 20;
-  } else if (a.yPos < -height / 2 + 20 + ship.yPos) {
-    a.yPos = 20;
+  if (a.yPos > height / 2 - 20 * multiplier + ship.yPos) {
+    a.yPos = height - 20 * multiplier;
+  } else if (a.yPos < -height / 2 + 20 * multiplier + ship.yPos) {
+    a.yPos = 20 * multiplier;
   } else {
     a.yPos += -ship.yPos + height / 2;
   }
@@ -1272,7 +1296,7 @@ function generateStars() {
 }
 
 function genStar(layer) {
-  size = width / 250 + Math.random() * 2;
+  size = 5 * multiplier + Math.random() * 2;
   let xPos =
     Math.sign(Math.random() - 0.5) *
       (Math.random() * width - size / 2) *
@@ -1951,13 +1975,13 @@ function fireBullet(object, missile = false) {
   let speed = bulletSpeed;
   object.wait.bullet = new Date();
   if (missile) {
-    let size = width / 60;
+    let size = 20 * multiplier;
     playSound(sounds.MISSILE, object);
     object.wait.missile = new Date();
     objects.push({
       type: types.BULLET,
-      xPos: object.xPos + Math.cos(object.dir) * (object.size + size),
-      yPos: object.yPos + Math.sin(object.dir) * (object.size + size),
+      xPos: object.xPos + Math.cos(object.dir) * (object.size/2 + size),
+      yPos: object.yPos + Math.sin(object.dir) * (object.size/2 + size),
       dir: object.dir,
       xVel: object.xVel + Math.cos(object.dir) * speed,
       yVel: object.yVel + Math.sin(object.dir) * speed,
@@ -1976,7 +2000,7 @@ function fireBullet(object, missile = false) {
       time: new Date()
     });
   } else {
-    let size = width / 130;
+    let size = 10 * multiplier;
     playSound(sounds.SHOOT, object);
     objects.push({
       type: types.BULLET,
@@ -2035,7 +2059,7 @@ function genLoot() {
     spinFriction: 0,
     maxSpeed: 0,
     maxRotation: 0,
-    size: ship.size,
+    size: 36 * multiplier,
     end: false
   };
   genCoords(newLoot);
