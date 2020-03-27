@@ -1,6 +1,6 @@
 //VARIABLES
 
-let newGame = true; //true
+let newGame = false; //true
 let gameStart, deathTime, waveTime, currentTime;
 let bounds;
 const types = {
@@ -26,7 +26,10 @@ const moveSpeed = 0.26,
   maxRotation = 10,
   gravSize = 3,
   gravConstant = 1 / 8,
-  teamAttack = false;
+  teamAttack = false,
+  CPUslow = 0.4,
+  CPUgap = 8,
+  CPUwait = 5;
 const totalStars = 400,
   starLayers = 10,
   totalPlanets = 6,
@@ -44,11 +47,9 @@ const textTime = 1000 * 5,
   shieldTime = 1000 * 30,
   missileTime = 1000 * 15,
   hitTime = 1000 * 3;
-const bulletWait = 1000 / 4,
+const bulletWait = 1000 / 5,
   missileWait = 1000 * 4,
-  boostWait = 1000 * 4,
-  CPUwait = 4,
-  CPUgap = 8;
+  boostWait = 1000 * 4;
 
 let lastKey = {
   up: false,
@@ -1008,8 +1009,8 @@ function lockTarget(a, b) {
     a.target === b &&
     ((b === ship && ship.lives === 0) ||
       b.end ||
-      (b.type !== types.PLANET && distance > bounds / 3) ||
-      (b.type === types.PLANET && distance > b.size))
+      distance > bounds ||
+      (b.type === types.PLANET && distance > b.size * 1.5))
   ) {
     a.target = null;
     return;
@@ -1019,11 +1020,11 @@ function lockTarget(a, b) {
       if (a.target === b || distance >= getDistance(a, a.target)) {
         return;
       }
-    } else if (distance > b.size) {
+    } else if (distance > b.size * 1.5) {
       return;
     }
   } else {
-    if (distance > bounds / 3 || !inFront(a, b)) {
+    if (distance > bounds || !inFront(a, b)) {
       return;
     }
     if (a.type === types.SHIP) {
@@ -1046,8 +1047,8 @@ function lockTarget(a, b) {
 }
 
 function trackTarget(object) {
-  let slow = object.type === types.BULLET ? 0.8 : 0.4;
-  let speed = moveSpeed * (object.type === types.BULLET ? 0.9 : slow);
+  let slow = object.type === types.SHIP ? CPUslow : 0.8;
+  let speed = moveSpeed * slow;
   if (
     (object.type !== types.SHIP || object === ship) &&
     (object.type !== types.BULLET || !object.missile)
@@ -1073,14 +1074,15 @@ function trackTarget(object) {
       : onRight(object, object.target)
       ? -PI / 2
       : PI / 2;
+    direction = checkDir(direction);
   }
-  direction = checkDir(direction);
   let distance = getDistance(object, object.target);
   let diff = dirDiff(direction, object.dir);
   spin(object, diff / PI);
   if (object.target.type === types.PLANET) {
     speed = moveSpeed;
-  } else if (object.target.type === types.SHIP) {
+  }
+  if (object.target.type === types.SHIP) {
     let velDifference = velDiff(object, object.target);
     if (
       distance < object.target.size * CPUgap &&
@@ -1124,17 +1126,15 @@ function calcGravity(a, b) {
   }
   if (a.type !== types.PLANET) {
     if (b.type === types.PLANET) {
-      temp = a;
-      a = b;
-      b = temp;
-    } else {
-      return;
+      calcGravity(b, a);
     }
+    return;
   }
   if (collision(a, b, true)) {
     let gravity =
       ((minGravDistance(a, b) - getDistance(a, b)) / minGravDistance(a, b)) *
-      gravConstant;
+      gravConstant *
+      (b === ship ? 1 : CPUslow);
     let direction = getDir(b, a);
     accelerate(b, gravity, direction);
     let velDir = getVelDir(b);
@@ -1157,6 +1157,9 @@ function genCoords(object) {
       2 +
     ship.yPos;
   for (i = 0; i < objects.length; i++) {
+    if (object.type === types.PLANET && objects[i].type === types.BULLET) {
+      continue;
+    }
     if (
       collision(
         object,
@@ -1176,7 +1179,7 @@ function genCoords(object) {
 }
 
 function backup(a, b, both = false, start = 0) {
-  if (Math.abs(start) >= 3 * PI) {
+  if (Math.abs(start) >= 4 * PI) {
     return genCoords(a);
   }
   let angle = start === 0 ? getDir(b, a) : checkDir(start);
@@ -1195,9 +1198,17 @@ function backup(a, b, both = false, start = 0) {
     }
   }
   for (i = 0; i < objects.length; i++) {
+    if (a.type === types.PLANET && objects[i].type === types.BULLET) {
+      continue;
+    }
     if (collision(a, objects[i], true)) {
       if (a.type === types.PLANET) {
-        return backup(a, objects[i], false, angle + PI / 4);
+        return backup(
+          a,
+          objects[i],
+          false,
+          (start === 0 ? angle : start) + PI / 4
+        );
       } else {
         distance = (minGravDistance(a, b) + minGravDistance(a, objects[i])) / 2;
         a.xPos = b.xPos + Math.cos(angle) * distance;
