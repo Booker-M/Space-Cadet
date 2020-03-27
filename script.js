@@ -43,7 +43,7 @@ let stars = [],
   objects = [];
 let allies = 0,
   enemies = 0,
-  wave = 4; //wave = 0
+  wave = 0; //wave = 0
 const textTime = 1000 * 5,
   boostTime = 1000,
   shieldTime = 1000 * 30,
