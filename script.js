@@ -1,6 +1,6 @@
 //VARIABLES
 
-let newGame = true; //true
+let newGame = false; //true
 let gameStart, deathTime, waveTime, currentTime;
 let bounds;
 const types = {
@@ -793,7 +793,10 @@ function adjustEffect(object) {
 function adjustParticle(object) {
   if (currentTime - particleTime > object.time) {
     object.end = true;
-  } else if ((object.type === types.BULLET && !object.missile) || object.type === types.DEBRIS) {
+  } else if (
+    (object.type === types.BULLET && !object.missile) ||
+    object.type === types.DEBRIS
+  ) {
     checkSpeed(object);
   }
 }
@@ -1313,6 +1316,11 @@ function backup(a, b, both = false, start = 0) {
 //OBJECT INDICATORS
 
 function drawArrow(object) {
+  let range =
+    object.type === types.LOOT || object.type === types.MISSILE
+      ? height * 2
+      : bounds;
+  let opacity = (255 * (range - getDistance(ship, object))) / range;
   if (
     object.type !== types.PLANET &&
     object.type !== types.SHIP &&
@@ -1322,12 +1330,7 @@ function drawArrow(object) {
     return;
   }
   a = getArrow(object);
-  fill(
-    object.color[0],
-    object.color[1],
-    object.color[2],
-    (255 * (bounds - getDistance(ship, object))) / bounds
-  );
+  fill(object.color[0], object.color[1], object.color[2], opacity);
   translate(a.xPos, a.yPos);
   textSize(20 * UIsize);
   if (object.type === types.SHIP) {
@@ -1345,7 +1348,6 @@ function drawArrow(object) {
   } else if (object.type === types.BULLET) {
     text("!", 0, 0);
   } else {
-    // fill(200);
     text("?", 0, 0);
   }
 }
