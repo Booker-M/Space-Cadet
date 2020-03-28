@@ -991,9 +991,6 @@ function endObject(i) {
   }
   if (objects[i].type === types.SHIP) {
     objects[i].lives = 0;
-    for (let j = 0; j < 10; j++) {
-      genDebris(objects[i]);
-    }
     if (objects[i] === ship) {
       deathTime = new Date();
       playSound(sounds.LOSE, ship);
@@ -1265,9 +1262,16 @@ function backup(a, b, both = false, start = 0) {
     return genCoords(a);
   }
   let angle = start === 0 ? getDir(b, a) : checkDir(start);
-  let distance = (both ? getGravSize(a) : minGravDistance(a, b)) + 1;
-  a.xPos = b.xPos + Math.cos(angle) * distance;
-  a.yPos = b.yPos + Math.sin(angle) * distance;
+  let distance;
+  if (both) {
+    distance = Math.abs(getDistance(a, b)) / 2 + 1;
+    a.xPos += Math.cos(angle) * distance;
+    a.yPos += Math.sin(angle) * distance;
+  } else {
+    let distance = minGravDistance(a, b) + 1;
+    a.xPos = b.xPos + Math.cos(angle) * distance;
+    a.yPos = b.yPos + Math.sin(angle) * distance;
+  }
   if (a.type === types.SHIP) {
     if (b.type === types.PLANET) {
       stopBoost(a);
@@ -1280,7 +1284,11 @@ function backup(a, b, both = false, start = 0) {
     }
   }
   for (i = 0; i < objects.length; i++) {
-    if (a.type === types.PLANET && objects[i].type === types.BULLET) {
+    if (
+      a.type === types.PLANET &&
+      objects[i].type !== types.PLANET &&
+      objects[i].type !== types.SHIP
+    ) {
       continue;
     }
     if (collision(a, objects[i], true)) {
@@ -1292,7 +1300,8 @@ function backup(a, b, both = false, start = 0) {
           (start === 0 ? angle : start) + PI / 4
         );
       } else {
-        distance = (minGravDistance(a, b) + minGravDistance(a, objects[i])) / 2;
+        distance =
+          Math.abs(getGravDistance(a, b) + getGravDistance(a, objects[i])) / 2;
         a.xPos = b.xPos + Math.cos(angle) * distance;
         a.yPos = b.yPos + Math.sin(angle) * distance;
       }
@@ -2284,6 +2293,9 @@ function genExplosion(object) {
   };
   objects.push(newExplosion);
   playSound(sounds.EXPLODE, object);
+  for (let i = 0; i < 10; i++) {
+    genDebris(object);
+  }
 }
 
 function drawExplosion(object) {
