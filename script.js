@@ -214,11 +214,25 @@ function newWave() {
     teams = totalShips;
   }
   let teamSize = totalShips / teams;
+  teams++;
+  if (wave % 5 === 0) {
+    if (teamSize === 1) {
+      for (i = 0; i < wave / 5; i++) {
+        objects.push(genShip(0, randomColor(), true));
+        teams--;
+      }
+    }
+  }
   for (t = 1; t <= teams; t++) {
+    let color = t === ship.team ? ship.color : randomColor();
+    let isBoss = wave % 5 === 0 && teamSize !== 1;
+    if (isBoss) {
+      objects.push(genShip(t, randomColor(), true));
+    }
     generateShips(
-      teamSize - (t === ship.team ? 1 : 0),
+      teamSize - (t === ship.team ? 1 : 0) - isBoss ? 1 : 0,
       t,
-      t === ship.team ? ship.color : randomColor()
+      color
     );
   }
   waveTime = new Date();
@@ -329,8 +343,8 @@ function refresh() {
       objects[i].type === types.BULLET ||
       objects[i].type === types.DEBRIS
     ) {
-      move(objects[i]);
       trackTarget(objects[i]);
+      move(objects[i]);
     }
     if (outOfBounds(objects[i])) {
       fix(i);
@@ -345,13 +359,13 @@ function refresh() {
       if (collision(objects[i], objects[j])) {
         collide(objects[i], objects[j]);
       }
-      calcGravity(objects[i], objects[j]);
-      lockTarget(objects[i], objects[j]);
-      lockTarget(objects[j], objects[i]);
       if (objects[j].end === true && endObject(j)) {
         j--;
         continue;
       }
+      lockTarget(objects[i], objects[j]);
+      lockTarget(objects[j], objects[i]);
+      calcGravity(objects[i], objects[j]);
     }
     drawObject(objects[i]);
   }
@@ -878,7 +892,9 @@ function bump(a, b) {
       if (a.lives > 1) {
         result.hit = true;
         playSound(sounds.HIT, a);
-        a.lives--;
+        if (!regenRange(a)) {
+          a.lives--;
+        }
         return result;
       }
     } else if (a.type === types.LOOT) {
@@ -1287,15 +1303,20 @@ function backup(a, b, both = false, start = 0) {
 //OBJECT INDICATORS
 
 function drawArrow(object) {
-  if (object.type !== types.PLANET && object.type !== types.SHIP && (object.type !== types.BULLET || !object.missile) && object.type !== types.LOOT) {
+  if (
+    object.type !== types.PLANET &&
+    object.type !== types.SHIP &&
+    (object.type !== types.BULLET || !object.missile) &&
+    object.type !== types.LOOT
+  ) {
     return;
   }
   a = getArrow(object);
   fill(
-  object.color[0],
-  object.color[1],
-  object.color[2],
-  (255 * (bounds - getDistance(ship, object))) / bounds
+    object.color[0],
+    object.color[1],
+    object.color[2],
+    (255 * (bounds - getDistance(ship, object))) / bounds
   );
   translate(a.xPos, a.yPos);
   textSize(20 * UIsize);
@@ -1309,14 +1330,11 @@ function drawArrow(object) {
       -10 * multiplier,
       0 * multiplier
     );
-  }
-  else if (object.type === types.PLANET) {
+  } else if (object.type === types.PLANET) {
     ellipse(0, 0, 20 * multiplier);
-  }
-  else if (object.type === types.BULLET) {
+  } else if (object.type === types.BULLET) {
     text("!", 0, 0);
-  }
-  else {
+  } else {
     // fill(200);
     text("?", 0, 0);
   }
@@ -1421,8 +1439,8 @@ function generateShips(number, team, color) {
   }
 }
 
-function genShip(team = 0, color = randomColor(), lives = 1) {
-  let size = ship.size;
+function genShip(team = 0, color = randomColor(), boss = false) {
+  let size = ship.size * (boss ? 2 : 1);
   let newShip = {
     type: types.SHIP,
     xPos: 0,
@@ -1444,7 +1462,7 @@ function genShip(team = 0, color = randomColor(), lives = 1) {
     kills: 0,
     target: null,
     team: team,
-    lives: lives
+    lives: boss ? 3 : 1
   };
   genCoords(newShip);
   newShip.dir = getDir(newShip, ship);
