@@ -49,7 +49,7 @@ const textTime = 1000 * 5,
   boostTime = 1000,
   shieldTime = 1000 * 30,
   rapidfireTime = 1000 * 15,
-  missileTime = 1000 * 15,
+  particleTime = 1000 * 15,
   hitTime = 1000 * 3;
 const bulletWait = 1000 / 4,
   rapidfireWait = 1000 / 7,
@@ -349,7 +349,6 @@ function refresh() {
     if (outOfBounds(objects[i])) {
       fix(i);
     }
-    checkSpeed(objects[i]);
     adjust(objects[i]);
     if (objects[i].end === true && endObject(i)) {
       i--;
@@ -753,7 +752,7 @@ function checkSpeed(object) {
   if (
     ((object.type === types.BULLET && !object.missile) ||
       object.type === types.DEBRIS) &&
-    parseInt(getSpeed(object)) < 3
+    parseInt(getSpeed(object)) < (object.type === types.DEBRIS ? 2 : 4)
   ) {
     object.end = true;
   }
@@ -766,8 +765,8 @@ function adjust(object) {
   if (object.type === types.EFFECT) {
     adjustEffect(object);
   }
-  if (object.type === types.BULLET && object.missile) {
-    adjustMissile(object);
+  if (object.type === types.BULLET || object.type === types.DEBRIS) {
+    adjustParticle(object);
   }
 }
 
@@ -791,9 +790,11 @@ function adjustEffect(object) {
   }
 }
 
-function adjustMissile(object) {
-  if (currentTime - missileTime > object.time) {
+function adjustParticle(object) {
+  if (currentTime - particleTime > object.time) {
     object.end = true;
+  } else if ((object.type === types.BULLET && !object.missile) || object.type === types.DEBRIS) {
+    checkSpeed(object);
   }
 }
 
@@ -1474,7 +1475,7 @@ function genShip(team = 0, color = randomColor(), boss = false) {
     lives: boss ? 3 : 1
   };
   genCoords(newShip);
-  newShip.dir = getDir(newShip, ship);
+  newShip.dir = getDir(ship, newShip);
   team === ship.team ? allies++ : enemies++;
   return newShip;
 }
@@ -2102,7 +2103,8 @@ function fireBullet(object, missile = false) {
       color: [0, 255, 255, 245],
       end: false,
       missile: false,
-      parent: object
+      parent: object,
+      time: new Date()
     });
   }
 }
@@ -2188,7 +2190,8 @@ function genDebris(object) {
     size: size,
     color: color,
     end: false,
-    shape: shape
+    shape: shape,
+    time: new Date()
   };
   objects.push(newDebris);
 }
