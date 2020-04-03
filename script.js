@@ -19,18 +19,18 @@ let ship = {},
   multiplier,
   UIsize,
   fontSize;
-const moveSpeed = 0.26,
+const moveSpeed = 0.27,
   rotateSpeed = 0.3,
   boostSpeed = 10,
   friction = 0.995,
   spinFriction = 0.97,
-  bulletSpeed = 13,
-  maxSpeed = 10,
+  bulletSpeed = 12,
+  maxSpeed = 13,
   maxRotation = 10,
   gravSize = 3,
-  gravConstant = 1 / 8,
+  gravConstant = 0.17,
   teamAttack = false,
-  CPUslow = 0.4,
+  CPUslow = 0.85,
   CPUgap = 8,
   CPUwait = 5;
 const totalStars = 400,
@@ -118,24 +118,25 @@ const sounds = {
 function setup() {
   noStroke();
   rectMode(CENTER);
-  createCanvas(
-    Math.max(windowWidth - 20, 480),
-    Math.max(windowHeight - 20, 320)
-  );
-  adjustSizes();
   reset();
 }
 
 function adjustSizes() {
-  bounds = 480 * 10 + height * 2;
-  maxPlanetSize = (height * 4) / 3;
-  minPlanetSize = height / 2;
-  multiplier = height / 720;
+  resizeCanvas(
+    Math.max(windowWidth - 20, 480),
+    Math.max(windowHeight - 20, 320)
+  );
+  cross = Math.sqrt(height**2 + length**2);
+  bounds = 480 * 8 + cross * 2;
+  maxPlanetSize = cross*1.5;
+  minPlanetSize = cross / 2;
+  multiplier = cross / 720;
   UIsize = Math.min(1.5, Math.max(0.7, multiplier));
   fontSize = Math.min(3, width / 960);
 }
 
 function reset() {
+  adjustSizes();
   gameStart = new Date();
   musicStart = new Date();
   trackLength = -1;
@@ -1128,8 +1129,8 @@ function lockTarget(a, b) {
 }
 
 function trackTarget(object) {
-  let slow = object.type === types.SHIP ? CPUslow : 0.8;
-  let speed = moveSpeed * slow;
+  // let slow = object.type === types.SHIP ? CPUslow : 1;
+  let speed = moveSpeed;
   if (
     (object.type !== types.SHIP || object === ship) &&
     (object.type !== types.BULLET || !object.missile)
@@ -1462,8 +1463,8 @@ function genShip(team = 0, color = randomColor(), boss = false) {
     dVel: 0,
     friction: friction,
     spinFriction: spinFriction,
-    maxSpeed: maxSpeed,
-    maxRotation: maxRotation,
+    maxSpeed: maxSpeed * CPUslow,
+    maxRotation: maxRotation * CPUslow,
     size: size,
     color: color,
     end: false,
