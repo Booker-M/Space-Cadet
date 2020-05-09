@@ -19,10 +19,10 @@ let ship = {},
   multiplier,
   UIsize,
   fontSize;
-const moveSpeed = 0.27,
+const moveSpeed = 0.3,
   rotateSpeed = 0.3,
   boostSpeed = 10,
-  friction = 0.995,
+  friction = 0.99,
   spinFriction = 0.97,
   bulletSpeed = 12,
   maxSpeed = 13,
@@ -342,6 +342,11 @@ function refresh() {
   drawStars();
   flameFlicker();
   for (let i = 0; i < objects.length; i++) {
+    if (
+        typeof objects[i] === "undefined"
+      ) {
+        throw "Undefined object!";
+      }
     if (objects[i] === ship && ship.lives === 0) {
       continue;
     }
@@ -946,6 +951,12 @@ function isHit(object) {
 }
 
 function giveLoot(object) {
+  if (object.type === types.BULLET) {
+    if (object.parent != null) {
+      giveLoot(object.parent);
+    }
+    return;
+  }
   if (
     (object === ship ||
       (object.type === types.BULLET && object.parent === ship)) &&
@@ -1052,9 +1063,6 @@ function stopBoost(object) {
 }
 
 function shield(object, end = false) {
-  if (object.type === types.BULLET) {
-    return shield(object.parent);
-  }
   end ? (object.time.shield -= shieldTime) : (object.time.shield = new Date());
   playSound(end ? sounds.SHIELDHIT : sounds.SHIELD, object);
 }
@@ -2072,8 +2080,8 @@ function fireBullet(object, missile = false) {
     object.wait.missile = new Date();
     objects.push({
       type: types.BULLET,
-      xPos: object.xPos + Math.cos(object.dir) * (object.size / 2 + size),
-      yPos: object.yPos + Math.sin(object.dir) * (object.size / 2 + size),
+      xPos: object.xPos + Math.cos(object.dir) * (object.size + size),
+      yPos: object.yPos + Math.sin(object.dir) * (object.size + size),
       dir: object.dir,
       xVel: object.xVel + Math.cos(object.dir) * speed,
       yVel: object.yVel + Math.sin(object.dir) * speed,
